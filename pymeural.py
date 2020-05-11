@@ -4,7 +4,6 @@ from typing import Dict
 
 import aiohttp
 import async_timeout
-import voluptuous as vol
 
 BASE_URL = "https://api.meural.com/v0/"
 
