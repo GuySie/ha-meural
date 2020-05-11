@@ -9,6 +9,8 @@ from homeassistant.components.media_player.const import (
     SUPPORT_PREVIOUS_TRACK,
 )
 
+from homeassistant.helpers import entity_platform
+
 from .const import DOMAIN
 from .pymeural import LocalMeural
 
@@ -21,7 +23,17 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     meural = hass.data[DOMAIN][config_entry.entry_id]
     devices = await meural.get_user_devices()
     async_add_entities(MeuralEntity(meural, device) for device in devices)
+    platform = entity_platform.current_platform.get()
 
+    platform.async_register_entity_service(
+        "change_duration",
+        {
+            vol.Required("time"): vol.All(
+                vol.Coerce(int), vol.Range(min=0, max=3600)
+            )
+        },
+        "async_change_duration",
+    )
 
 class MeuralEntity(MediaPlayerDevice):
     """Representation of a Meural entity."""
@@ -109,3 +121,6 @@ class MeuralEntity(MediaPlayerDevice):
     async def async_media_next_track(self):
         """Send next track command."""
         await self.local_meural.send_key_right()
+        
+    async def async_change_duration(self, time):
+        await self.meural.update_device(self.meural_device_id, {"imageDuration": time})

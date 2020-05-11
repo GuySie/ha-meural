@@ -4,6 +4,7 @@ from typing import Dict
 
 import aiohttp
 import async_timeout
+import voluptuous as vol
 
 BASE_URL = "https://api.meural.com/v0/"
 
@@ -76,8 +77,8 @@ class PyMeural:
     async def get_device_galleries(self, device_id):
         return await self.request("get", f"devices/{device_id}/galleries")
 
-    async def update_device(self, device_id):
-        return await self.request("put", f"devices/{device_id}")
+    async def update_device(self, device_id, data):
+        return await self.request("put", f"devices/{device_id}", data)
 
 
 class LocalMeural:
