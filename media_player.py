@@ -1,4 +1,5 @@
 import logging
+import voluptuous as vol
 
 from homeassistant.components.media_player import MediaPlayerDevice
 
@@ -121,6 +122,6 @@ class MeuralEntity(MediaPlayerDevice):
     async def async_media_next_track(self):
         """Send next track command."""
         await self.local_meural.send_key_right()
-        
+
     async def async_change_duration(self, time):
         await self.meural.update_device(self.meural_device_id, {"imageDuration": time})
