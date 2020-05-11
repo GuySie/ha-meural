@@ -8,6 +8,7 @@ from homeassistant.components.media_player.const import (
     SUPPORT_SELECT_SOURCE,
     SUPPORT_NEXT_TRACK,
     SUPPORT_PREVIOUS_TRACK,
+    SUPPORT_SHUFFLE_SET,
 )
 
 from homeassistant.helpers import entity_platform
@@ -17,7 +18,7 @@ from .pymeural import LocalMeural
 
 _LOGGER = logging.getLogger(__name__)
 
-MEURAL_SUPPORT = SUPPORT_SELECT_SOURCE | SUPPORT_NEXT_TRACK | SUPPORT_PREVIOUS_TRACK
+MEURAL_SUPPORT = SUPPORT_SELECT_SOURCE | SUPPORT_NEXT_TRACK | SUPPORT_PREVIOUS_TRACK | SUPPORT_SHUFFLE_SET
 
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
@@ -34,6 +35,19 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             )
         },
         "async_change_duration",
+    )
+
+    platform = entity_platform.current_platform.get()
+
+    platform.async_register_entity_service(
+        "set_device_option",
+        {
+            vol.Optional("time"): vol.All(
+                vol.Coerce(int), vol.Range(min=0, max=3600)
+            ),
+            vol.Optional("shuffle"): bool
+        },
+        "async_set_device_option",
     )
 
 class MeuralEntity(MediaPlayerDevice):
@@ -125,3 +139,11 @@ class MeuralEntity(MediaPlayerDevice):
 
     async def async_change_duration(self, time):
         await self.meural.update_device(self.meural_device_id, {"imageDuration": time})
+
+    async def async_set_device_option(self, time=None, shuffle=None):
+        params = {}
+        if time is not None:
+           params["imageDuration"] = time
+        if shuffle is not None:
+           params["imageShuffle"] = shuffle
+        await self.meural.update_device(self.meural_device_id, params)

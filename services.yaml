@@ -9,3 +9,15 @@ change_duration:
     time:
       description: Duration in seconds.
       example: "180"
+set_device_option:
+  description: Change multiple options of the Meural frame.
+  fields:
+    entity_id:
+      description: Entity ID of the Meural frame.
+      example: "media_player.meural"
+    time:
+      description: Duration in seconds.
+      example: "180"
+    shuffle:
+      description: Randomize the order that images show within an individual playlist.
+      example: True
