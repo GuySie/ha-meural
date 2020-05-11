@@ -1,0 +1,21 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+        },
+        "error": {
+            "cannot_connect": "[%key:common::config_flow::abort::cannot_connect%]",
+            "invalid_auth": "[%key:common::config_flow::abort::invalid_auth%]",
+            "unknown": "[%key:common::config_flow::abort::unknown%]"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "password": "Password",
+                    "email": "Email"
+                }
+            }
+        }
+    },
+    "title": "Meural"
+}

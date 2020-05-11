@@ -1,0 +1,12 @@
+{
+  "domain": "meural",
+  "name": "Meural",
+  "config_flow": true,
+  "documentation": "https://www.home-assistant.io/integrations/meural",
+  "requirements": [],
+  "ssdp": [],
+  "zeroconf": [],
+  "homekit": {},
+  "dependencies": [],
+  "codeowners": ["@guysie"]
+}
