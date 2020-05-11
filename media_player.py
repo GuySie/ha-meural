@@ -7,8 +7,12 @@ from homeassistant.components.media_player import STATE_PLAYING
 from homeassistant.components.media_player.const import (
     SUPPORT_SELECT_SOURCE,
     SUPPORT_NEXT_TRACK,
+    SUPPORT_PAUSE,
+    SUPPORT_PLAY,
     SUPPORT_PREVIOUS_TRACK,
     SUPPORT_SHUFFLE_SET,
+    SUPPORT_TURN_OFF,
+    SUPPORT_TURN_ON,
 )
 
 from homeassistant.helpers import entity_platform
@@ -18,7 +22,7 @@ from .pymeural import LocalMeural
 
 _LOGGER = logging.getLogger(__name__)
 
-MEURAL_SUPPORT = SUPPORT_SELECT_SOURCE | SUPPORT_NEXT_TRACK | SUPPORT_PREVIOUS_TRACK | SUPPORT_SHUFFLE_SET
+MEURAL_SUPPORT = SUPPORT_SELECT_SOURCE | SUPPORT_NEXT_TRACK | SUPPORT_PAUSE | SUPPORT_PLAY | SUPPORT_PREVIOUS_TRACK | SUPPORT_SHUFFLE_SET | SUPPORT_TURN_OFF | SUPPORT_TURN_ON
 
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
@@ -147,3 +151,12 @@ class MeuralEntity(MediaPlayerDevice):
         if shuffle is not None:
            params["imageShuffle"] = shuffle
         await self.meural.update_device(self.meural_device_id, params)
+
+    async def async_turn_on(self):
+        """Resume Meural frame display."""
+        await self.local_meural.send_key_resume()
+
+    async def async_turn_off(self):
+        """Suspend Meural frame display."""
+        await self.local_meural.send_key_suspend()
+
