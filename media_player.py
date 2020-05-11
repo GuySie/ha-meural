@@ -3,11 +3,18 @@ import logging
 from homeassistant.components.media_player import MediaPlayerDevice
 
 from homeassistant.components.media_player import STATE_PLAYING
-from homeassistant.components.media_player.const import SUPPORT_SELECT_SOURCE
+from homeassistant.components.media_player.const import (
+    SUPPORT_SELECT_SOURCE,
+    SUPPORT_NEXT_TRACK,
+    SUPPORT_PREVIOUS_TRACK,
+)
 
 from .const import DOMAIN
+from .pymeural import LocalMeural
 
 _LOGGER = logging.getLogger(__name__)
+
+MEURAL_SUPPORT = SUPPORT_SELECT_SOURCE | SUPPORT_NEXT_TRACK | SUPPORT_PREVIOUS_TRACK
 
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
@@ -31,6 +38,13 @@ class MeuralEntity(MediaPlayerDevice):
     @property
     def meural_device_name(self):
         return self._meural_device["name"]
+
+    @property
+    def local_meural(self):
+        return LocalMeural(
+            self._meural_device,
+            self.hass.helpers.aiohttp_client.async_get_clientsession(),
+        )
 
     async def async_added_to_hass(self):
         device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
@@ -63,7 +77,7 @@ class MeuralEntity(MediaPlayerDevice):
     @property
     def supported_features(self):
         """Flag media player features that are supported."""
-        return SUPPORT_SELECT_SOURCE
+        return MEURAL_SUPPORT
 
     @property
     def source_list(self):
@@ -87,3 +101,11 @@ class MeuralEntity(MediaPlayerDevice):
             _LOGGER.warning("Source %s not found", source)
 
         await self.meural.device_load_gallery(self.meural_device_id, source)
+
+    async def async_media_previous_track(self):
+        """Send previous track command."""
+        await self.local_meural.send_key_left()
+
+    async def async_media_next_track(self):
+        """Send next track command."""
+        await self.local_meural.send_key_right()

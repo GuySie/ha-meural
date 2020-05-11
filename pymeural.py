@@ -50,9 +50,6 @@ class PyMeural:
             )
 
         response = await resp.json()
-        from pprint import pprint
-
-        pprint(response)
         return response["data"]
 
     async def get_user(self):
@@ -81,3 +78,47 @@ class PyMeural:
 
     async def update_device(self, device_id):
         return await self.request("put", f"devices/{device_id}")
+
+
+class LocalMeural:
+    def __init__(self, device, session: aiohttp.ClientSession):
+        self.ip = device["localIp"]
+        self.session = session
+
+    async def request(self, method, path, data=None) -> Dict:
+        url = f"http://{self.ip}/remote/control_command/{path}"
+        kwargs = {}
+        if data:
+            if method == "get":
+                data["query"] = data
+            else:
+                data["data"] = data
+        with async_timeout.timeout(10):
+            resp = await self.session.request(
+                method,
+                url,
+                headers={
+                    "Authorization": f"Token {self.token}",
+                    "x-meural-api-version": "3",
+                },
+                raise_for_status=True,
+                **kwargs,
+            )
+
+        response = await resp.json()
+        from pprint import pprint
+
+        pprint(response)
+        return response["data"]
+
+    async def send_key_right(self):
+        return await self.request("post", f"set_key/right/")
+
+    async def send_key_left(self):
+        return await self.request("post", f"set_key/left/")
+
+    async def send_key_up(self):
+        return await self.request("post", f"set_key/up/")
+
+    async def send_key_down(self):
+        return await self.request("post", f"set_key/down/")
