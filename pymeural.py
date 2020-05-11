@@ -97,19 +97,9 @@ class LocalMeural:
             resp = await self.session.request(
                 method,
                 url,
-                headers={
-                    "Authorization": f"Token {self.token}",
-                    "x-meural-api-version": "3",
-                },
                 raise_for_status=True,
                 **kwargs,
             )
-
-        response = await resp.json()
-        from pprint import pprint
-
-        pprint(response)
-        return response["data"]
 
     async def send_key_right(self):
         return await self.request("post", f"set_key/right/")
