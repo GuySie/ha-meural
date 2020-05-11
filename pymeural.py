@@ -34,9 +34,9 @@ class PyMeural:
         kwargs = {}
         if data:
             if method == "get":
-                data["query"] = data
+                kwargs["query"] = data
             else:
-                data["data"] = data
+                kwargs["json"] = data
         with async_timeout.timeout(10):
             resp = await self.session.request(
                 method,
@@ -112,3 +112,9 @@ class LocalMeural:
 
     async def send_key_down(self):
         return await self.request("post", f"set_key/down/")
+
+    async def send_key_suspend(self):
+        return await self.request("post", f"suspend")
+
+    async def send_key_resume(self):
+        return await self.request("post", f"resume")        

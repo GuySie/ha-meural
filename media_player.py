@@ -124,4 +124,8 @@ class MeuralEntity(MediaPlayerDevice):
         await self.local_meural.send_key_right()
 
     async def async_change_duration(self, time):
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning("A: %s", time)
         await self.meural.update_device(self.meural_device_id, {"imageDuration": time})
+        logger.warning("B")
