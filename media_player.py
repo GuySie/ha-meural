@@ -34,7 +34,8 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         "change_duration",
         {
             vol.Required("time"): vol.All(
-                vol.Coerce(int), vol.Range(min=0, max=3600)
+                vol.Coerce(int),
+                vol.Range(min=0, max=3600)
             )
         },
         "async_change_duration",
@@ -49,24 +50,29 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             vol.Optional("orientationMatch"): bool,           
             vol.Optional("alsEnabled"): bool,
             vol.Optional("alsSensitivity"): vol.All(
-                vol.Coerce(int), vol.Range(min=0, max=100)
+                vol.Coerce(int),
+                vol.Range(min=0, max=100)
             ),
             vol.Optional("goesDark"): bool,            
             vol.Optional("imageShuffle"): bool,
             vol.Optional("imageDuration"): vol.All(
-                vol.Coerce(int), vol.Range(min=0, max=86400)
+                vol.Coerce(int),
+                vol.Range(min=0, max=86400)
             ),
             vol.Optional("previewDuration"): vol.All(
-                vol.Coerce(int), vol.Range(min=0, max=3600)
+                vol.Coerce(int),
+                vol.Range(min=0, max=3600)
             ),
             vol.Optional("overlayDuration"): vol.All(
-                vol.Coerce(int), vol.Range(min=0, max=3600)
+                vol.Coerce(int),
+                vol.Range(min=0, max=3600)
             ),
             vol.Optional("gestureFeedback"): bool,
             vol.Optional("gestureFeedbackHelp"): bool,
             vol.Optional("gestureFlip"): bool,
             vol.Optional("backgroundColor"): str,
             vol.Optional("fillMode"): str,
+            vol.Optional("schedulerEnabled"): bool,
             vol.Optional("galleryRotation"): bool
         },
         "async_set_device_option",
@@ -162,7 +168,7 @@ class MeuralEntity(MediaPlayerDevice):
     async def async_change_duration(self, time):
         await self.meural.update_device(self.meural_device_id, {"imageDuration": time})
 
-    async def async_set_device_option(self, orientation=None, orientationMatch=None, alsEnabled=None, alsSensitivity=None, goesDark=None, imageShuffle=None, imageDuration=None, previewDuration=None, overlayDuration=None, gestureFeedback=None, gestureFeedbackHelp=None, gestureFlip=None, backgroundColor=None, fillMode=None, galleryRotation=None):
+    async def async_set_device_option(self, orientation=None, orientationMatch=None, alsEnabled=None, alsSensitivity=None, goesDark=None, imageShuffle=None, imageDuration=None, previewDuration=None, overlayDuration=None, gestureFeedback=None, gestureFeedbackHelp=None, gestureFlip=None, backgroundColor=None, fillMode=None, schedulerEnabled=None, galleryRotation=None):
         params = {}
         if orientation is not None:
             params["orientation"] = orientation
@@ -175,25 +181,27 @@ class MeuralEntity(MediaPlayerDevice):
         if goesDark is not None:
             params["goesDark"] = goesDark
         if imageShuffle is not None:
-           params["imageShuffle"] = imageShuffle
+            params["imageShuffle"] = imageShuffle
         if imageDuration is not None:
-           params["imageDuration"] = imageDuration
+            params["imageDuration"] = imageDuration
         if previewDuration is not None:
-           params["previewDuration"] = previewDuration     
+            params["previewDuration"] = previewDuration     
         if overlayDuration is not None:
-           params["overlayDuration"] = overlayDuration
+            params["overlayDuration"] = overlayDuration
         if gestureFeedback is not None:
-           params["gestureFeedback"] = gestureFeedback
+            params["gestureFeedback"] = gestureFeedback
         if gestureFeedbackHelp is not None:
-           params["gestureFeedbackHelp"] = gestureFeedbackHelp        
+            params["gestureFeedbackHelp"] = gestureFeedbackHelp        
         if gestureFlip is not None:
-           params["gestureFlip"] = gestureFlip
+            params["gestureFlip"] = gestureFlip
         if backgroundColor is not None:
-           params["backgroundColor"] = backgroundColor
+            params["backgroundColor"] = backgroundColor
         if fillMode is not None:
-           params["fillMode"] = fillMode
+            params["fillMode"] = fillMode
+        if schedulerEnabled is not None:
+            params["schedulerEnabled"] = schedulerEnabled
         if galleryRotation is not None:
-           params["galleryRotation"] = galleryRotation
+            params["galleryRotation"] = galleryRotation
         await self.meural.update_device(self.meural_device_id, params)
 
     async def async_turn_on(self):
