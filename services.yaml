@@ -10,14 +10,53 @@ change_duration:
       description: Duration in seconds.
       example: "180"
 set_device_option:
-  description: Change multiple options of the Meural frame.
+  description: Set a Meural canvas' configuration options.
   fields:
     entity_id:
-      description: Entity ID of the Meural frame.
+      description: Entity ID of the Meural canvas to update.
       example: "media_player.meural"
-    time:
-      description: Duration in seconds.
-      example: "180"
-    shuffle:
+    orientation:
+      description: This manually changes the orientation of images on your Canvas. Can be horizontal or vertical.
+      example: "horizontal" 
+    orientationMatch:
+      description: Your Canvas only shows works that match its current orientation, i.e. if your Canvas is in vertical, only vertical works will display. 
+      example: "true"
+    alsEnabled:
+      description: Your Canvas can automatically adjusts its brightness to match its surroundings.
+      example: "true"
+    alsSensitivity:
+      description: On high light sensitivity, your Canvas will pick up more light in the room, and become brighter to match. Likewise, low sensitivity will make your Canvas less bright. Default settings are 100 for High, 20 for Medium, and 4 for Low.
+      example: "20"
+    goesDark:
+      description: When there's no light in the room, the Canvas will go into sleep mode. (When the room becomes light again, the Canvas will wake up.)
+      example: "true"
+    imageShuffle:
       description: Randomize the order that images show within an individual playlist.
-      example: True
+      example: "false"
+    imageDuration:
+      description: The length of time in seconds between images (to prevent images from changing automatically, enter '0').
+      example: "300"
+    previewDuration:
+      description: The length of time in seconds an image previews from the mobile app.
+      example: "120"
+    overlayDuration:
+      description: Timeout in seconds for hiding overlays such as captions, settings, and playlists.
+      example: "60"
+    gestureFeedback:
+      description: Preview images in a playlist when changing image using gesture.
+      example: "false"
+    gestureFeedbackHelp:
+      description: Show help text when gesturing.
+      example: "true"
+    gestureFlip:
+      description: Invert your Canvas horizontal gestures. Applies on images rotation in a playlist and on-screen menu selections.
+      example: "false"
+    backgroundColor:
+      description: The color behind images that don't fill the frame. Can be grey, white, or black.
+      example: "black"
+    fillMode: 
+      description: How images fill the screen if they don't match the Canvas' aspect ratio. Can be auto crop, as is, contain, or stretch.
+      example: "auto crop"
+    galleryRotation:
+      description: When a playlist reaches the last image, automatically rotate to the next playlist. (A playlist won't be rotated if you manually switch from the last images to the first.)
+      example: "false"

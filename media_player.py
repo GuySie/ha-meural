@@ -10,7 +10,6 @@ from homeassistant.components.media_player.const import (
     SUPPORT_PAUSE,
     SUPPORT_PLAY,
     SUPPORT_PREVIOUS_TRACK,
-    SUPPORT_SHUFFLE_SET,
     SUPPORT_TURN_OFF,
     SUPPORT_TURN_ON,
 )
@@ -22,7 +21,7 @@ from .pymeural import LocalMeural
 
 _LOGGER = logging.getLogger(__name__)
 
-MEURAL_SUPPORT = SUPPORT_SELECT_SOURCE | SUPPORT_NEXT_TRACK | SUPPORT_PAUSE | SUPPORT_PLAY | SUPPORT_PREVIOUS_TRACK | SUPPORT_SHUFFLE_SET | SUPPORT_TURN_OFF | SUPPORT_TURN_ON
+MEURAL_SUPPORT = SUPPORT_SELECT_SOURCE | SUPPORT_NEXT_TRACK | SUPPORT_PAUSE | SUPPORT_PLAY | SUPPORT_PREVIOUS_TRACK | SUPPORT_TURN_OFF | SUPPORT_TURN_ON
 
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
@@ -46,10 +45,29 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     platform.async_register_entity_service(
         "set_device_option",
         {
-            vol.Optional("time"): vol.All(
+            vol.Optional("orientation"): str,
+            vol.Optional("orientationMatch"): bool,           
+            vol.Optional("alsEnabled"): bool,
+            vol.Optional("alsSensitivity"): vol.All(
+                vol.Coerce(int), vol.Range(min=0, max=100)
+            ),
+            vol.Optional("goesDark"): bool,            
+            vol.Optional("imageShuffle"): bool,
+            vol.Optional("imageDuration"): vol.All(
+                vol.Coerce(int), vol.Range(min=0, max=86400)
+            ),
+            vol.Optional("previewDuration"): vol.All(
                 vol.Coerce(int), vol.Range(min=0, max=3600)
             ),
-            vol.Optional("shuffle"): bool
+            vol.Optional("overlayDuration"): vol.All(
+                vol.Coerce(int), vol.Range(min=0, max=3600)
+            ),
+            vol.Optional("gestureFeedback"): bool,
+            vol.Optional("gestureFeedbackHelp"): bool,
+            vol.Optional("gestureFlip"): bool,
+            vol.Optional("backgroundColor"): str,
+            vol.Optional("fillMode"): str,
+            vol.Optional("galleryRotation"): bool
         },
         "async_set_device_option",
     )
@@ -144,12 +162,38 @@ class MeuralEntity(MediaPlayerDevice):
     async def async_change_duration(self, time):
         await self.meural.update_device(self.meural_device_id, {"imageDuration": time})
 
-    async def async_set_device_option(self, time=None, shuffle=None):
+    async def async_set_device_option(self, orientation=None, orientationMatch=None, alsEnabled=None, alsSensitivity=None, goesDark=None, imageShuffle=None, imageDuration=None, previewDuration=None, overlayDuration=None, gestureFeedback=None, gestureFeedbackHelp=None, gestureFlip=None, backgroundColor=None, fillMode=None, galleryRotation=None):
         params = {}
-        if time is not None:
-           params["imageDuration"] = time
-        if shuffle is not None:
-           params["imageShuffle"] = shuffle
+        if orientation is not None:
+            params["orientation"] = orientation
+        if orientationMatch is not None:
+            params["orientationMatch"] = orientationMatch
+        if alsEnabled is not None:
+            params["alsEnabled"] = alsEnabled
+        if alsSensitivity is not None:
+            params["alsSensitivity"] = alsSensitivity
+        if goesDark is not None:
+            params["goesDark"] = goesDark
+        if imageShuffle is not None:
+           params["imageShuffle"] = imageShuffle
+        if imageDuration is not None:
+           params["imageDuration"] = imageDuration
+        if previewDuration is not None:
+           params["previewDuration"] = previewDuration     
+        if overlayDuration is not None:
+           params["overlayDuration"] = overlayDuration
+        if gestureFeedback is not None:
+           params["gestureFeedback"] = gestureFeedback
+        if gestureFeedbackHelp is not None:
+           params["gestureFeedbackHelp"] = gestureFeedbackHelp        
+        if gestureFlip is not None:
+           params["gestureFlip"] = gestureFlip
+        if backgroundColor is not None:
+           params["backgroundColor"] = backgroundColor
+        if fillMode is not None:
+           params["fillMode"] = fillMode
+        if galleryRotation is not None:
+           params["galleryRotation"] = galleryRotation
         await self.meural.update_device(self.meural_device_id, params)
 
     async def async_turn_on(self):
@@ -160,3 +204,10 @@ class MeuralEntity(MediaPlayerDevice):
         """Suspend Meural frame display."""
         await self.local_meural.send_key_suspend()
 
+    async def async_media_pause(self):
+        """Set duration to 0 (pause)."""
+        await self.meural.update_device(self.meural_device_id, {"imageDuration": 0})
+
+    async def async_media_play(self):
+        """Set duration to 300 (5 minutes) (play)."""
+        await self.meural.update_device(self.meural_device_id, {"imageDuration": 300})
