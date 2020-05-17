@@ -9,6 +9,15 @@ change_duration:
     time:
       description: Duration in seconds.
       example: "180"
+set_brightness:
+  description: Change backlight brightness setting of the Meural frame.
+  fields:
+    entity_id:
+      description: Entity ID of the Meural frame.
+      example: "media_player.meural"
+    brightness:
+      description: Backlight brightness on a scale of 0 (low) to 100 (high).
+      example: "90"
 set_device_option:
   description: Set a Meural canvas' configuration options.
   fields:

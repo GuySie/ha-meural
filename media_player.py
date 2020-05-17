@@ -22,8 +22,16 @@ from .pymeural import LocalMeural
 
 _LOGGER = logging.getLogger(__name__)
 
-MEURAL_SUPPORT = SUPPORT_SELECT_SOURCE | SUPPORT_NEXT_TRACK | SUPPORT_PAUSE | SUPPORT_PLAY | SUPPORT_PREVIOUS_TRACK | SUPPORT_SHUFFLE_SET | SUPPORT_TURN_OFF | SUPPORT_TURN_ON
-
+MEURAL_SUPPORT = (
+    SUPPORT_SELECT_SOURCE
+    | SUPPORT_NEXT_TRACK 
+    | SUPPORT_PAUSE 
+    | SUPPORT_PLAY 
+    | SUPPORT_PREVIOUS_TRACK 
+    | SUPPORT_SHUFFLE_SET 
+    | SUPPORT_TURN_OFF 
+    | SUPPORT_TURN_ON
+)
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     meural = hass.data[DOMAIN][config_entry.entry_id]
@@ -40,6 +48,19 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             )
         },
         "async_change_duration",
+    )
+
+    platform = entity_platform.current_platform.get()
+
+    platform.async_register_entity_service(
+        "set_brightness",
+        {
+            vol.Required("brightness"): vol.All(
+                vol.Coerce(int),
+                vol.Range(min=0, max=100)
+            )
+        },
+        "async_set_brightness",
     )
 
     platform = entity_platform.current_platform.get()
@@ -168,6 +189,9 @@ class MeuralEntity(MediaPlayerDevice):
 
     async def async_change_duration(self, time):
         await self.meural.update_device(self.meural_device_id, {"imageDuration": time})
+
+    async def async_set_brightness(self, brightness):
+        await self.local_meural.send_control_backlight(brightness)
 
     async def async_set_device_option(
         self, 

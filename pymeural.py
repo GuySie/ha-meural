@@ -117,4 +117,7 @@ class LocalMeural:
         return await self.request("post", f"suspend/")
 
     async def send_key_resume(self):
-        return await self.request("post", f"resume/")        
+        return await self.request("post", f"resume/")    
+
+    async def send_control_backlight(self, brightness):
+        return await self.request("post", f"set_backlight/{brightness}/")
