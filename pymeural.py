@@ -86,7 +86,7 @@ class LocalMeural:
         self.session = session
 
     async def request(self, method, path, data=None) -> Dict:
-        url = f"http://{self.ip}/remote/control_command/{path}"
+        url = f"http://{self.ip}/remote/{path}"
         kwargs = {}
         if data:
             if method == "get":
@@ -102,22 +102,28 @@ class LocalMeural:
             )
 
     async def send_key_right(self):
-        return await self.request("post", f"set_key/right/")
+        return await self.request("post", f"control_command/set_key/right/")
 
     async def send_key_left(self):
-        return await self.request("post", f"set_key/left/")
+        return await self.request("post", f"control_command/set_key/left/")
 
     async def send_key_up(self):
-        return await self.request("post", f"set_key/up/")
+        return await self.request("post", f"control_command/set_key/up/")
 
     async def send_key_down(self):
-        return await self.request("post", f"set_key/down/")
+        return await self.request("post", f"control_command/set_key/down/")
 
     async def send_key_suspend(self):
-        return await self.request("post", f"suspend/")
+        return await self.request("post", f"control_command/suspend/")
 
     async def send_key_resume(self):
-        return await self.request("post", f"resume/")    
+        return await self.request("post", f"control_command/resume/")    
 
     async def send_control_backlight(self, brightness):
-        return await self.request("post", f"set_backlight/{brightness}/")
+        return await self.request("post", f"control_command/set_backlight/{brightness}/")
+
+    async def send_als_calibrate_off(self):
+        return await self.request("post", f"control_command/als_calibrate/off/")  
+
+    async def send_get_backlight(self):
+        return await self.request("post", f"get_backlight/")

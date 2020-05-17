@@ -9,6 +9,12 @@ set_brightness:
     brightness:
       description: Backlight brightness on a scale of 0 (low) to 100 (high).
       example: "90"
+reset_brightness:
+  description: Automatically adjust Meural frame backlight to room's lighting.
+  fields:
+    entity_id:
+      description: Entity ID of the Meural frame.
+      example: "media_player.meural"
 set_device_option:
   description: Set a Meural canvas' configuration options.
   fields:
