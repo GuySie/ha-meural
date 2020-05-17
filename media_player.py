@@ -10,6 +10,7 @@ from homeassistant.components.media_player.const import (
     SUPPORT_PAUSE,
     SUPPORT_PLAY,
     SUPPORT_PREVIOUS_TRACK,
+    SUPPORT_SHUFFLE_SET,
     SUPPORT_TURN_OFF,
     SUPPORT_TURN_ON,
 )
@@ -21,7 +22,7 @@ from .pymeural import LocalMeural
 
 _LOGGER = logging.getLogger(__name__)
 
-MEURAL_SUPPORT = SUPPORT_SELECT_SOURCE | SUPPORT_NEXT_TRACK | SUPPORT_PAUSE | SUPPORT_PLAY | SUPPORT_PREVIOUS_TRACK | SUPPORT_TURN_OFF | SUPPORT_TURN_ON
+MEURAL_SUPPORT = SUPPORT_SELECT_SOURCE | SUPPORT_NEXT_TRACK | SUPPORT_PAUSE | SUPPORT_PLAY | SUPPORT_PREVIOUS_TRACK | SUPPORT_SHUFFLE_SET | SUPPORT_TURN_OFF | SUPPORT_TURN_ON
 
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
@@ -168,7 +169,24 @@ class MeuralEntity(MediaPlayerDevice):
     async def async_change_duration(self, time):
         await self.meural.update_device(self.meural_device_id, {"imageDuration": time})
 
-    async def async_set_device_option(self, orientation=None, orientationMatch=None, alsEnabled=None, alsSensitivity=None, goesDark=None, imageShuffle=None, imageDuration=None, previewDuration=None, overlayDuration=None, gestureFeedback=None, gestureFeedbackHelp=None, gestureFlip=None, backgroundColor=None, fillMode=None, schedulerEnabled=None, galleryRotation=None):
+    async def async_set_device_option(
+        self, 
+        orientation=None, 
+        orientationMatch=None, 
+        alsEnabled=None, 
+        alsSensitivity=None, 
+        goesDark=None, 
+        imageShuffle=None, 
+        imageDuration=None, 
+        previewDuration=None, 
+        overlayDuration=None, 
+        gestureFeedback=None, 
+        gestureFeedbackHelp=None, 
+        gestureFlip=None, 
+        backgroundColor=None, 
+        fillMode=None, 
+        schedulerEnabled=None, 
+        galleryRotation=None):
         params = {}
         if orientation is not None:
             params["orientation"] = orientation
@@ -219,3 +237,7 @@ class MeuralEntity(MediaPlayerDevice):
     async def async_media_play(self):
         """Set duration to 300 (5 minutes) (play)."""
         await self.meural.update_device(self.meural_device_id, {"imageDuration": 300})
+
+    async def async_set_shuffle(self, shuffle):
+        """Enable/disable shuffling."""
+        await self.meural.update_device(self.meural_device_id, {"imageShuffle": shuffle})
