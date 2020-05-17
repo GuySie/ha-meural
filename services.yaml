@@ -1,14 +1,5 @@
 # Describes the format for available meural services
 
-change_duration:
-  description: Change duration that artwork is displayed on the Meural frame.
-  fields:
-    entity_id:
-      description: Entity ID of the Meural frame.
-      example: "media_player.meural"
-    time:
-      description: Duration in seconds.
-      example: "180"
 set_brightness:
   description: Change backlight brightness setting of the Meural frame.
   fields:

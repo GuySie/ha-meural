@@ -37,18 +37,6 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     meural = hass.data[DOMAIN][config_entry.entry_id]
     devices = await meural.get_user_devices()
     async_add_entities(MeuralEntity(meural, device) for device in devices)
-    platform = entity_platform.current_platform.get()
-
-    platform.async_register_entity_service(
-        "change_duration",
-        {
-            vol.Required("time"): vol.All(
-                vol.Coerce(int),
-                vol.Range(min=0, max=3600)
-            )
-        },
-        "async_change_duration",
-    )
 
     platform = entity_platform.current_platform.get()
 
@@ -171,28 +159,6 @@ class MeuralEntity(MediaPlayerDevice):
         """If the image url is remotely accessible."""
         return True
 
-    async def async_select_source(self, source):
-        """Select input source."""
-        source = next((g["id"] for g in self._galleries if g["name"] == source), None)
-        if source is None:
-            _LOGGER.warning("Source %s not found", source)
-
-        await self.meural.device_load_gallery(self.meural_device_id, source)
-
-    async def async_media_previous_track(self):
-        """Send previous track command."""
-        await self.local_meural.send_key_left()
-
-    async def async_media_next_track(self):
-        """Send next track command."""
-        await self.local_meural.send_key_right()
-
-    async def async_change_duration(self, time):
-        await self.meural.update_device(self.meural_device_id, {"imageDuration": time})
-
-    async def async_set_brightness(self, brightness):
-        await self.local_meural.send_control_backlight(brightness)
-
     async def async_set_device_option(
         self, 
         orientation=None, 
@@ -245,6 +211,25 @@ class MeuralEntity(MediaPlayerDevice):
         if galleryRotation is not None:
             params["galleryRotation"] = galleryRotation
         await self.meural.update_device(self.meural_device_id, params)
+
+    async def async_set_brightness(self, brightness):
+        await self.local_meural.send_control_backlight(brightness)
+
+    async def async_select_source(self, source):
+        """Select input source."""
+        source = next((g["id"] for g in self._galleries if g["name"] == source), None)
+        if source is None:
+            _LOGGER.warning("Source %s not found", source)
+
+        await self.meural.device_load_gallery(self.meural_device_id, source)
+
+    async def async_media_previous_track(self):
+        """Send previous track command."""
+        await self.local_meural.send_key_left()
+
+    async def async_media_next_track(self):
+        """Send next track command."""
+        await self.local_meural.send_key_right()
 
     async def async_turn_on(self):
         """Resume Meural frame display."""
