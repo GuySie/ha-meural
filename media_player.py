@@ -1,6 +1,5 @@
 import logging
 import voluptuous as vol
-import asyncio
 
 from homeassistant.components.media_player import MediaPlayerDevice
 
@@ -222,8 +221,6 @@ class MeuralEntity(MediaPlayerDevice):
 
     async def async_reset_brightness(self):
         await self.local_meural.send_als_calibrate_off()
-        await asyncio.sleep(7)
-        await self.local_meural.send_get_backlight()
 
     async def async_select_source(self, source):
         """Select input source."""
