@@ -127,3 +127,10 @@ class LocalMeural:
 
     async def send_get_backlight(self):
         return await self.request("post", f"get_backlight/")
+
+    async def send_set_portrait(self):
+        return await self.request("post", f"control_command/set_orientation/portrait/")
+
+    async def send_set_landscape(self):
+        return await self.request("post", f"control_command/set_orientation/landscape/")
+        

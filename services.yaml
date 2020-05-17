@@ -1,25 +1,34 @@
 # Describes the format for available meural services
 
 set_brightness:
-  description: Change backlight brightness setting of the Meural frame.
+  description: Change backlight brightness setting of the Meural Canvas.
   fields:
     entity_id:
-      description: Entity ID of the Meural frame.
+      description: Entity ID of the Meural Canvas to update.
       example: "media_player.meural"
     brightness:
       description: Backlight brightness on a scale of 0 (low) to 100 (high).
       example: "90"
 reset_brightness:
-  description: Automatically adjust Meural frame backlight to room's lighting.
+  description: Automatically adjust Meural Canvas backlight to room's lighting.
   fields:
     entity_id:
-      description: Entity ID of the Meural frame.
+      description: Entity ID of the Meural Canvas to update.
       example: "media_player.meural"
-set_device_option:
-  description: Set a Meural canvas' configuration options.
+set_device_orientation:
+  description: Change orientation of images on the Meural Canvas. 
   fields:
     entity_id:
-      description: Entity ID of the Meural canvas to update.
+      description: Entity ID of the Meural Canvas to update.
+      example: "media_player.meural"
+    orientation:
+      description: Can be horizontal, vertical.
+      example: "vertical"
+set_device_option:
+  description: Set a Meural Canvas' configuration options.
+  fields:
+    entity_id:
+      description: Entity ID of the Meural Canvas to update.
       example: "media_player.meural"
     orientation:
       description: This manually changes the orientation of images on your Canvas. Can be horizontal, vertical.

@@ -58,6 +58,14 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     )
 
     platform.async_register_entity_service(
+        "set_device_orientation",
+        {
+            vol.Required("orientation"): str
+        },
+        "async_set_device_orientation",
+    )
+
+    platform.async_register_entity_service(
         "set_device_option",
         {
             vol.Optional("orientation"): str,
@@ -257,3 +265,10 @@ class MeuralEntity(MediaPlayerDevice):
     async def async_set_shuffle(self, shuffle):
         """Enable/disable shuffling."""
         await self.meural.update_device(self.meural_device_id, {"imageShuffle": shuffle})
+
+    async def async_set_device_orientation(self, orientation):
+        """Set horizontal or vertical device orientation."""
+        if orientation == 'vertical':
+            await self.local_meural.send_set_portrait()
+        elif orientation == 'horizontal':
+            await self.local_meural.send_set_landscape()
