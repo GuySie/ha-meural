@@ -1,4 +1,4 @@
-# Describes the format for available meural services
+# Describes the format for available Meural services
 
 set_brightness:
   description: Change backlight brightness setting of the Meural Canvas.
@@ -8,73 +8,73 @@ set_brightness:
       example: "media_player.meural"
     brightness:
       description: Backlight brightness on a scale of 0 (low) to 100 (high).
-      example: "90"
+      example: "50"
 reset_brightness:
-  description: Automatically adjust Meural Canvas backlight to room's lighting.
+  description: Automatically adjust Meural Canvas backlight to room's lighting according to ambient light sensor.
   fields:
     entity_id:
       description: Entity ID of the Meural Canvas to update.
       example: "media_player.meural"
 set_device_orientation:
-  description: Change orientation of images on the Meural Canvas. 
+  description: Manually override the orientation of images on your Canvas.
   fields:
     entity_id:
       description: Entity ID of the Meural Canvas to update.
       example: "media_player.meural"
     orientation:
-      description: Can be horizontal, vertical.
+      description: Desired orientation of images on your Canvas. Can be horizontal, vertical.
       example: "vertical"
 set_device_option:
-  description: Set a Meural Canvas' configuration options.
+  description: Set the configuration options of a Meural Canvas.
   fields:
     entity_id:
       description: Entity ID of the Meural Canvas to update.
       example: "media_player.meural"
     orientation:
-      description: This manually changes the orientation of images on your Canvas. Can be horizontal, vertical.
+      description: Override the orientation of images on your Canvas. Can be horizontal, vertical.
       example: "horizontal" 
     orientationMatch:
-      description: Your Canvas only shows works that match its current orientation, i.e. if your Canvas is in vertical, only vertical works will display. 
+      description: Your Canvas only shows images that match its current orientation, i.e. if your Canvas is in vertical, only vertical images will display. 
       example: "true"
     alsEnabled:
-      description: Your Canvas can automatically adjusts its brightness to match its surroundings using the Ambient Light Sensor.
+      description: Your Canvas will automatically adjusts its brightness to match its surroundings using the Ambient Light Sensor.
       example: "true"
     alsSensitivity:
-      description: On high light sensitivity, your Canvas will pick up more light in the room, and become brighter to match. Likewise, low sensitivity will make your Canvas less bright. Default settings are 100 for High, 20 for Medium, and 4 for Low.
+      description: Light sensitivity of your Canvas on a scale of 0 (low) to 100 (high). On high sensitivity, your Canvas will become brighter to match the light in the room. Default settings are 100 (High), 20 (Medium), and 4 (Low).
       example: "20"
     goesDark:
-      description: When there's no light in the room, the Canvas will go into sleep mode. When the room becomes light again, the Canvas will wake up.
+      description: Your Canvas will go into sleep mode when there's no light in the room. When the room becomes light again, your Canvas will wake up.
       example: "true"
     imageShuffle:
-      description: Randomize the order that images show within an individual playlist.
+      description: Your Canvas will randomize the order of images within an individual playlist.
       example: "false"
     imageDuration:
-      description: The length of time in seconds between images. To prevent images from changing automatically, enter '0'.
+      description: Length of time in seconds between images changing on your Canvas. To prevent images from changing automatically, enter '0'.
       example: "300"
     previewDuration:
-      description: The length of time in seconds an image previews from the mobile app.
-      example: "120"
-    overlayDuration:
-      description: Timeout in seconds for hiding overlays such as captions, settings, and playlists.
+      description: Length of time in seconds an image previews on your Canvas from the mobile app.
       example: "60"
+    overlayDuration:
+      description: Length of time in seconds that overlays such as captions, settings, and playlists are displayed on your Canvas.
+      example: "120"
     gestureFeedback:
-      description: Preview images in a playlist when changing image using gesture.
+      description: Your Canvas will display a preview of images in the playlist when switching image manually.
       example: "false"
     gestureFeedbackHelp:
-      description: Show help text when gesturing.
+      description: Your Canvas will show help text when displaying a preview of images in the playlist.
       example: "true"
     gestureFlip:
-      description: Invert your Canvas horizontal gestures. Applies on image rotation in a playlist and on-screen menu selections.
+      description: Your Canvas will invert horizontal gestures. Applies on image rotation in a playlist and on-screen menu selections.
       example: "false"
     backgroundColor:
-      description: The color behind images that don't fill the frame. Can be gray, white, black.
+      description: Color displayed behind images that don't fill the frame. Can be grey, white, black.
       example: "black"
     fillMode: 
-      description: How images fill the screen if they don't match the Canvas' aspect ratio. Can be contain, auto crop, as is, stretch.
+      description: How images will fill the screen if they don't match the Canvas' aspect ratio. Can be contain, auto crop, as is, stretch.
       example: "auto crop"
     galleryRotation:
-      description: When a playlist reaches the last image, automatically rotate to the next playlist. A playlist won't be rotated if you manually switch from the last images to the first.
+      description: Atomatically rotate to the next playlist when your Canvas reaches the last image in a playlist. Playlists won't be rotated if you manually switch from the last image to the first.
       example: "false"
     schedulerEnabled:
-      description: Enable scheduler. With the Scheduler, you can put the Canvas to sleep and wake it up at certain times of day or schedule playlists at certain times.
+      description: Enable scheduler. With the scheduler, you can put your Canvas to sleep and wake it up at certain times of day or schedule playlists at certain times.
       example: "true"
