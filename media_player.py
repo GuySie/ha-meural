@@ -159,6 +159,8 @@ class MeuralEntity(MediaPlayerDevice):
         """Name of the current input source."""
         sourceid = self._meural_device["currentGallery"]
         inputsource = [g["name"] for g in self._galleries if g["id"] == sourceid]
+        if inputsource is None:
+            _LOGGER.warning("Source %s not found", sourceid)        
         return inputsource
 
     @property
@@ -250,7 +252,6 @@ class MeuralEntity(MediaPlayerDevice):
         source = next((g["id"] for g in self._galleries if g["name"] == source), None)
         if source is None:
             _LOGGER.warning("Source %s not found", source)
-
         await self.meural.device_load_gallery(self.meural_device_id, source)
 
     async def async_media_previous_track(self):
