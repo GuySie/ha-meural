@@ -135,6 +135,7 @@ class MeuralEntity(MediaPlayerDevice):
         self._galleries = device_galleries #+ user_galleries
 
     async def async_update(self):
+        await self.meural.sync_device(self.meural_device_id)
         self._meural_device = await self.meural.get_device(self.meural_device_id)
 
     @property
