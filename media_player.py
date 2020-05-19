@@ -112,6 +112,8 @@ class MeuralEntity(MediaPlayerDevice):
         self._meural_device = device
         self._galleries = []
 
+        self.pause_duration = 0
+
     @property
     def meural_device_id(self):
         return self._meural_device["id"]
@@ -129,8 +131,8 @@ class MeuralEntity(MediaPlayerDevice):
 
     async def async_added_to_hass(self):
         device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
-        user_galleries = await self.meural.get_user_galleries()
-        self._galleries = user_galleries + device_galleries
+#        user_galleries = await self.meural.get_user_galleries()
+        self._galleries = device_galleries #+ user_galleries
 
     async def async_update(self):
         self._meural_device = await self.meural.get_device(self.meural_device_id)
@@ -150,8 +152,7 @@ class MeuralEntity(MediaPlayerDevice):
         """Return the state of the entity."""
         if self._meural_device["imageDuration"] == 0:
             return STATE_PAUSED
-        else:
-            return STATE_PLAYING
+        return STATE_PLAYING
 
     @property
     def source(self):
@@ -172,21 +173,16 @@ class MeuralEntity(MediaPlayerDevice):
     def media_image_url(self):
         """Image url of current playing media."""
         return self._meural_device["currentImage"]
-
-    @property
-    def image_shuffle(self):
-        """Is shuffle set"""
-        return self._meural_device["imageShuffle"]
-
-    @property
-    def image_duration(self):
-        """Duration that images are displayed."""
-        return self._meural_device["imageDuration"]
-
+ 
     @property
     def media_image_remotely_accessible(self) -> bool:
         """If the image url is remotely accessible."""
         return True
+
+    @property
+    def shuffle(self):
+        """Boolean if shuffling is enabled."""
+        return self._meural_device["imageShuffle"]
 
     async def async_set_device_option(
         self, 
@@ -272,12 +268,16 @@ class MeuralEntity(MediaPlayerDevice):
         await self.local_meural.send_key_suspend()
 
     async def async_media_pause(self):
-        """Set duration to 0 (pause)."""
+        """Set duration to 0 (pause), store current duration in pause_duration."""
+        self.pause_duration = self._meural_device["imageDuration"]
         await self.meural.update_device(self.meural_device_id, {"imageDuration": 0})
 
     async def async_media_play(self):
-        """Set duration to image_duration (play)."""
-        await self.meural.update_device(self.meural_device_id, {"imageDuration": self.image_duration})
+        """Restore duration from pause_duration (play). Use duration 300 if no pause_duration was stored."""
+        if self.pause_duration != 0:
+            await self.meural.update_device(self.meural_device_id, {"imageDuration": self.pause_duration})
+        else:
+            await self.meural.update_device(self.meural_device_id, {"imageDuration": 300})            
 
     async def async_set_shuffle(self, shuffle):
         """Enable/disable shuffling."""
