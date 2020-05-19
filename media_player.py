@@ -157,7 +157,9 @@ class MeuralEntity(MediaPlayerDevice):
     @property
     def source(self):
         """Name of the current input source."""
-        return None
+        sourceid = self._meural_device["currentGallery"]
+        inputsource = [g["name"] for g in self._galleries if g["id"] == sourceid]
+        return inputsource
 
     @property
     def supported_features(self):
