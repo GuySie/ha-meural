@@ -79,6 +79,8 @@ class PyMeural:
     async def update_device(self, device_id, data):
         return await self.request("put", f"devices/{device_id}", data)
 
+    async def sync_device(self, device_id):
+        return await self.request("post", f"devices/{device_id}/sync")
 
 class LocalMeural:
     def __init__(self, device, session: aiohttp.ClientSession):
@@ -133,4 +135,3 @@ class LocalMeural:
 
     async def send_set_landscape(self):
         return await self.request("post", f"control_command/set_orientation/landscape/")
-        
