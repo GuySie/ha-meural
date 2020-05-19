@@ -5,7 +5,7 @@ set_brightness:
   fields:
     entity_id:
       description: Entity ID of the Meural Canvas to update.
-      example: "media_player.meural"
+      example: "media_player.meural-123"
     brightness:
       description: Backlight brightness on a scale of 0 (low) to 100 (high).
       example: "50"
@@ -14,13 +14,13 @@ reset_brightness:
   fields:
     entity_id:
       description: Entity ID of the Meural Canvas to update.
-      example: "media_player.meural"
+      example: "media_player.meural-123"
 set_device_orientation:
   description: Manually override the orientation of images on your Canvas.
   fields:
     entity_id:
       description: Entity ID of the Meural Canvas to update.
-      example: "media_player.meural"
+      example: "media_player.meural-123"
     orientation:
       description: Desired orientation of images on your Canvas. Can be horizontal, vertical.
       example: "vertical"
@@ -29,7 +29,7 @@ set_device_option:
   fields:
     entity_id:
       description: Entity ID of the Meural Canvas to update.
-      example: "media_player.meural"
+      example: "media_player.meural-123"
     orientation:
       description: Override the orientation of images on your Canvas. Can be horizontal, vertical.
       example: "horizontal" 

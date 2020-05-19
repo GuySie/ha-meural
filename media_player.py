@@ -3,7 +3,11 @@ import voluptuous as vol
 
 from homeassistant.components.media_player import MediaPlayerDevice
 
-from homeassistant.components.media_player import STATE_PLAYING
+from homeassistant.const import (
+    STATE_PLAYING,
+    STATE_PAUSED,
+)
+
 from homeassistant.components.media_player.const import (
     SUPPORT_SELECT_SOURCE,
     SUPPORT_NEXT_TRACK,
@@ -144,7 +148,10 @@ class MeuralEntity(MediaPlayerDevice):
     @property
     def state(self):
         """Return the state of the entity."""
-        return STATE_PLAYING
+        if self._meural_device["imageDuration"] == 0:
+            return STATE_PAUSED
+        else:
+            return STATE_PLAYING
 
     @property
     def source(self):
@@ -165,6 +172,16 @@ class MeuralEntity(MediaPlayerDevice):
     def media_image_url(self):
         """Image url of current playing media."""
         return self._meural_device["currentImage"]
+
+    @property
+    def image_shuffle(self):
+        """Is shuffle set"""
+        return self._meural_device["imageShuffle"]
+
+    @property
+    def image_duration(self):
+        """Duration that images are displayed."""
+        return self._meural_device["imageDuration"]
 
     @property
     def media_image_remotely_accessible(self) -> bool:
@@ -259,8 +276,8 @@ class MeuralEntity(MediaPlayerDevice):
         await self.meural.update_device(self.meural_device_id, {"imageDuration": 0})
 
     async def async_media_play(self):
-        """Set duration to 300 (5 minutes) (play)."""
-        await self.meural.update_device(self.meural_device_id, {"imageDuration": 300})
+        """Set duration to image_duration (play)."""
+        await self.meural.update_device(self.meural_device_id, {"imageDuration": self.image_duration})
 
     async def async_set_shuffle(self, shuffle):
         """Enable/disable shuffling."""
