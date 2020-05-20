@@ -48,7 +48,6 @@ class PyMeural:
                 raise_for_status=True,
                 **kwargs,
             )
-
         response = await resp.json()
         return response["data"]
 
@@ -102,6 +101,8 @@ class LocalMeural:
                 raise_for_status=True,
                 **kwargs,
             )
+        response = await resp.json(content_type=None)
+        return response["response"]
 
     async def send_key_right(self):
         return await self.request("post", f"control_command/set_key/right/")
@@ -135,3 +136,6 @@ class LocalMeural:
 
     async def send_set_landscape(self):
         return await self.request("post", f"control_command/set_orientation/landscape/")
+
+    async def send_get_sleep(self):
+        return await self.request("get", f"control_check/sleep/")

@@ -114,6 +114,7 @@ class MeuralEntity(MediaPlayerDevice):
         self._galleries = []
 
         self.pause_duration = 0
+        self.sleep = True
 
     @property
     def meural_device_id(self):
@@ -136,6 +137,7 @@ class MeuralEntity(MediaPlayerDevice):
         self._galleries = device_galleries #+ user_galleries
 
     async def async_update(self):
+        self.sleep = await self.local_meural.send_get_sleep()
         self._meural_device = await self.meural.get_device(self.meural_device_id)
 
     @property
@@ -151,7 +153,9 @@ class MeuralEntity(MediaPlayerDevice):
     @property
     def state(self):
         """Return the state of the entity."""
-        if self._meural_device["imageDuration"] == 0:
+        if self.sleep == True:
+            return STATE_STANDBY
+        elif self._meural_device["imageDuration"] == 0:
             return STATE_PAUSED
         return STATE_PLAYING
 
