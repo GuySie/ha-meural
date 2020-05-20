@@ -128,14 +128,24 @@ class LocalMeural:
     async def send_als_calibrate_off(self):
         return await self.request("post", f"control_command/als_calibrate/off/")  
 
-    async def send_get_backlight(self):
-        return await self.request("post", f"get_backlight/")
-
     async def send_set_portrait(self):
         return await self.request("post", f"control_command/set_orientation/portrait/")
 
     async def send_set_landscape(self):
         return await self.request("post", f"control_command/set_orientation/landscape/")
 
+    async def send_get_backlight(self):
+        return await self.request("get", f"get_backlight/")
+        
     async def send_get_sleep(self):
         return await self.request("get", f"control_check/sleep/")
+
+    async def send_get_system(self):
+        return await self.request("get", f"control_check/system/")
+
+    async def send_identify(self):
+        return await self.request("get", f"identify/")
+
+    async def send_get_wifi_connections(self):
+        return await self.request("get", f"get_wifi_connections_json/")
+        
