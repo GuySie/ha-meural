@@ -133,8 +133,11 @@ class MeuralEntity(MediaPlayerDevice):
 
     async def async_added_to_hass(self):
         device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
-#        user_galleries = await self.meural.get_user_galleries()
-        self._galleries = device_galleries #+ user_galleries
+        user_galleries = await self.meural.get_user_galleries()
+        combined_galleries = device_galleries + user_galleries
+        clean_galleries = []
+        [clean_galleries.append(x) for x in combined_galleries if x not in clean_galleries]
+        self._galleries = clean_galleries
 
     async def async_update(self):
         self.sleep = await self.local_meural.send_get_sleep()
