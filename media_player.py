@@ -132,12 +132,11 @@ class MeuralEntity(MediaPlayerDevice):
         )
 
     async def async_added_to_hass(self):
+        """Include user galleries that may not be synced to the device galleries yet."""
         device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
         user_galleries = await self.meural.get_user_galleries()
-        combined_galleries = device_galleries + user_galleries
-        clean_galleries = []
-        [clean_galleries.append(x) for x in combined_galleries if x not in clean_galleries]
-        self._galleries = clean_galleries
+        [device_galleries.append(x) for x in user_galleries if x not in device_galleries]
+        self._galleries = device_galleries  
 
     async def async_update(self):
         self.sleep = await self.local_meural.send_get_sleep()
@@ -261,7 +260,6 @@ class MeuralEntity(MediaPlayerDevice):
         if source is None:
             _LOGGER.warning("Source %s not found", source)
         await self.meural.device_load_gallery(self.meural_device_id, source)
-        await self.meural.sync_device(self.meural_device_id)        
 
     async def async_media_previous_track(self):
         """Send previous track command."""
