@@ -6,6 +6,7 @@ from homeassistant.components.media_player import MediaPlayerDevice
 from homeassistant.const import (
     STATE_PLAYING,
     STATE_PAUSED,
+    STATE_STANDBY,
 )
 
 from homeassistant.components.media_player.const import (
@@ -135,7 +136,6 @@ class MeuralEntity(MediaPlayerDevice):
         self._galleries = device_galleries #+ user_galleries
 
     async def async_update(self):
-        await self.meural.sync_device(self.meural_device_id)
         self._meural_device = await self.meural.get_device(self.meural_device_id)
 
     @property
@@ -254,42 +254,53 @@ class MeuralEntity(MediaPlayerDevice):
         if source is None:
             _LOGGER.warning("Source %s not found", source)
         await self.meural.device_load_gallery(self.meural_device_id, source)
+        await self.meural.sync_device(self.meural_device_id)        
 
     async def async_media_previous_track(self):
         """Send previous track command."""
         await self.local_meural.send_key_left()
+        await self.meural.sync_device(self.meural_device_id)
 
     async def async_media_next_track(self):
         """Send next track command."""
         await self.local_meural.send_key_right()
+        await self.meural.sync_device(self.meural_device_id)
 
     async def async_turn_on(self):
         """Resume Meural frame display."""
         await self.local_meural.send_key_resume()
+        await self.meural.sync_device(self.meural_device_id)
 
     async def async_turn_off(self):
         """Suspend Meural frame display."""
         await self.local_meural.send_key_suspend()
+        await self.meural.sync_device(self.meural_device_id)
 
     async def async_media_pause(self):
         """Set duration to 0 (pause), store current duration in pause_duration."""
         self.pause_duration = self._meural_device["imageDuration"]
         await self.meural.update_device(self.meural_device_id, {"imageDuration": 0})
+        await self.meural.sync_device(self.meural_device_id)
 
     async def async_media_play(self):
         """Restore duration from pause_duration (play). Use duration 300 if no pause_duration was stored."""
         if self.pause_duration != 0:
             await self.meural.update_device(self.meural_device_id, {"imageDuration": self.pause_duration})
+            await self.meural.sync_device(self.meural_device_id)
         else:
             await self.meural.update_device(self.meural_device_id, {"imageDuration": 300})            
+            await self.meural.sync_device(self.meural_device_id)
 
     async def async_set_shuffle(self, shuffle):
         """Enable/disable shuffling."""
         await self.meural.update_device(self.meural_device_id, {"imageShuffle": shuffle})
+        await self.meural.sync_device(self.meural_device_id)
 
     async def async_set_device_orientation(self, orientation):
         """Set horizontal or vertical device orientation."""
         if orientation == 'vertical':
             await self.local_meural.send_set_portrait()
+            await self.meural.sync_device(self.meural_device_id)
         elif orientation == 'horizontal':
             await self.local_meural.send_set_landscape()
+            await self.meural.sync_device(self.meural_device_id)
