@@ -24,6 +24,15 @@ set_device_orientation:
     orientation:
       description: Desired orientation of images on your Canvas. Can be horizontal, vertical.
       example: "vertical"
+load_gallery:
+  description: Change playlist being displayed on your Canvas.
+  fields:
+    entity_id:
+      description: Entity ID of the Meural Canvas to update.
+      example: "media_player.meural-123"
+    gallery:
+      description: Name of gallery to display.
+      example: "Gallery"
 set_device_option:
   description: Set the configuration options of a Meural Canvas.
   fields:

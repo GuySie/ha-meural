@@ -71,6 +71,14 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     )
 
     platform.async_register_entity_service(
+        "load_gallery",
+        {
+            vol.Required("gallery"): str
+        },
+        "async_load_gallery",
+    )
+
+    platform.async_register_entity_service(
         "set_device_option",
         {
             vol.Optional("orientation"): str,
@@ -309,3 +317,10 @@ class MeuralEntity(MediaPlayerDevice):
         elif orientation == 'horizontal':
             await self.local_meural.send_set_landscape()
             await self.meural.sync_device(self.meural_device_id)
+
+    async def async_load_gallery(self, gallery):
+        """Change gallery being displayed."""
+        gallery = next((g["id"] for g in self._galleries if g["name"] == gallery), None)
+        if gallery is None:
+            _LOGGER.warning("Source %s not found", gallery)
+        await self.meural.device_load_gallery(self.meural_device_id, gallery)
