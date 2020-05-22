@@ -6,7 +6,7 @@ from homeassistant.components.media_player import MediaPlayerDevice
 from homeassistant.const import (
     STATE_PLAYING,
     STATE_PAUSED,
-    STATE_STANDBY,
+    STATE_OFF,
 )
 
 from homeassistant.components.media_player.const import (
@@ -172,7 +172,7 @@ class MeuralEntity(MediaPlayerDevice):
     def state(self):
         """Return the state of the entity."""
         if self._sleep == True:
-            return STATE_STANDBY
+            return STATE_OFF
         elif self._meural_device["imageDuration"] == 0:
             return STATE_PAUSED
         return STATE_PLAYING
