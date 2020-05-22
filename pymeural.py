@@ -136,7 +136,7 @@ class LocalMeural:
 
     async def send_get_backlight(self):
         return await self.request("get", f"get_backlight/")
-        
+
     async def send_get_sleep(self):
         return await self.request("get", f"control_check/sleep/")
 
@@ -148,4 +148,6 @@ class LocalMeural:
 
     async def send_get_wifi_connections(self):
         return await self.request("get", f"get_wifi_connections_json/")
-        
+
+    async def send_get_gallery_status(self):
+        return await self.request("get", f"get_gallery_status_json/")
