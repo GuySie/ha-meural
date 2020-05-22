@@ -121,8 +121,8 @@ class MeuralEntity(MediaPlayerDevice):
         self._meural_device = device
         self._galleries = []
 
-        self.pause_duration = 0
-        self.sleep = True
+        self._pause_duration = 0
+        self._sleep = True
 
     @property
     def meural_device_id(self):
@@ -147,13 +147,15 @@ class MeuralEntity(MediaPlayerDevice):
         self._galleries = device_galleries  
 
     async def async_update(self):
-        self.sleep = await self.local_meural.send_get_sleep()
+        self._sleep = await self.local_meural.send_get_sleep()
+
         self._meural_device = await self.meural.get_device(self.meural_device_id)
+ 
         localdata = await self.local_meural.send_get_gallery_status()
         localitem = int(localdata["current_item"])
         remoteitem = int(self._meural_device["frameStatus"]["currentItem"])
         if localitem != remoteitem:
-            _LOGGER.warning("Syncing with Meural API because: local %s, remote %s", localitem, remoteitem)
+            _LOGGER.warning("Syncing with Meural API because local item ID %s is not remote item ID %s", localitem, remoteitem)
             await self.meural.sync_device(self.meural_device_id)
 
     @property
@@ -169,7 +171,7 @@ class MeuralEntity(MediaPlayerDevice):
     @property
     def state(self):
         """Return the state of the entity."""
-        if self.sleep == True:
+        if self._sleep == True:
             return STATE_STANDBY
         elif self._meural_device["imageDuration"] == 0:
             return STATE_PAUSED
@@ -293,13 +295,13 @@ class MeuralEntity(MediaPlayerDevice):
 
     async def async_media_pause(self):
         """Set duration to 0 (pause), store current duration in pause_duration."""
-        self.pause_duration = self._meural_device["imageDuration"]
+        self._pause_duration = self._meural_device["imageDuration"]
         await self.meural.update_device(self.meural_device_id, {"imageDuration": 0})
 
     async def async_media_play(self):
         """Restore duration from pause_duration (play). Use duration 300 if no pause_duration was stored."""
-        if self.pause_duration != 0:
-            await self.meural.update_device(self.meural_device_id, {"imageDuration": self.pause_duration})
+        if self._pause_duration != 0:
+            await self.meural.update_device(self.meural_device_id, {"imageDuration": self._pause_duration})
         else:
             await self.meural.update_device(self.meural_device_id, {"imageDuration": 300})            
 
