@@ -1,7 +1,7 @@
 import logging
 import voluptuous as vol
 
-from homeassistant.components.media_player import MediaPlayerDevice
+from homeassistant.components.media_player import MediaPlayerEntity
 
 from homeassistant.const import (
     STATE_PLAYING,
@@ -113,7 +113,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         "async_set_device_option",
     )
 
-class MeuralEntity(MediaPlayerDevice):
+class MeuralEntity(MediaPlayerEntity):
     """Representation of a Meural entity."""
 
     def __init__(self, meural, device):
@@ -322,3 +322,5 @@ class MeuralEntity(MediaPlayerDevice):
         if gallery is None:
             _LOGGER.warning("Source %s not found", gallery)
         await self.meural.device_load_gallery(self.meural_device_id, gallery)
+
+        
