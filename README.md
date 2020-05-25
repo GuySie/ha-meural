@@ -5,7 +5,7 @@ The Netgear Meural Canvas is a digital art frame with both a local interface and
 Home Assistant is an open source home automation package that puts local control and privacy first.  
 This integration leverages Meural's API and local interface to control the Meural Canvas as a media player in Home Assistant.  
 # Installation
-Copy this integration into your Home Assistant's custom_components folder and restart Home Assistant. Log in with your Netgear account when setting up the integration. The integration will detect all Canvas devices registered to your account. Each Canvas will become a Media Player entity and can be added to your Lovelace UI using any component that supports it, for example the default Media Control card.  
+Copy the 'meural' folder into your Home Assistant's 'custom_components' folder and restart Home Assistant. Log in with your Netgear account when setting up the integration. The integration will detect all Canvas devices registered to your account. Each Canvas will become a Media Player entity and can be added to your Lovelace UI using any component that supports it, for example the default Media Control card.  
 
 The integration supports built-in media player service calls to pause, play, go to next/previous track (artwork), select source (art playlist), set shuffle, turn on and turn off. Additional services built into this integration are:  
 *meural.load_gallery*  
