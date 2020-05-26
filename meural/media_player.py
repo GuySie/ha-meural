@@ -155,7 +155,7 @@ class MeuralEntity(MediaPlayerEntity):
         localitem = int(localdata["current_item"])
         remoteitem = int(self._meural_device["frameStatus"]["currentItem"])
         if localitem != remoteitem:
-            _LOGGER.warning("Syncing with Meural API because local item ID %s is not remote item ID %s", localitem, remoteitem)
+#            _LOGGER.warning("Syncing with Meural API because local item ID %s is not remote item ID %s", localitem, remoteitem)
             await self.meural.sync_device(self.meural_device_id)
 
     @property
