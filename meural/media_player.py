@@ -141,6 +141,7 @@ class MeuralEntity(MediaPlayerEntity):
         user_galleries = await self.meural.get_user_galleries()
         [device_galleries.append(x) for x in user_galleries if x not in device_galleries]
         self._galleries = device_galleries  
+
         """Set up first item to display"""
         localdata = await self.local_meural.send_get_gallery_status()
         self._current_item = await self.meural.get_item(int(localdata["current_item"]))
@@ -148,17 +149,26 @@ class MeuralEntity(MediaPlayerEntity):
     async def async_update(self):
         self._sleep = await self.local_meural.send_get_sleep()
 
+        """Only poll the Meural API if the device is not sleeping."""
         if self._sleep == False:
             self._meural_device = await self.meural.get_device(self.meural_device_id)
 
+            """Check what item the device was displaying, what item the device is currently displaying, and what item the Meural API thinks we're currently displaying."""
+            olditem = self._media_content_id
             remoteitem = int(self._meural_device["frameStatus"]["currentItem"])
             localdata = await self.local_meural.send_get_gallery_status()
-            self._media_content_id = int(localdata["current_item"])
+            localitem = int(localdata["current_item"])
+            self._media_content_id = localitem
 
-            if self._media_content_id != remoteitem:
-                _LOGGER.warning("Syncing with Meural API because local item ID %s is not remote item ID %s", self._media_content_id, remoteitem)
-                await self.meural.sync_device(self.meural_device_id)
+            """Only get item information if the local current item has changed since last poll."""            
+            if olditem != localitem:
+#                _LOGGER.warning("Getting item from Meural API for ID %s", self._media_content_id)
                 self._current_item = await self.meural.get_item(self._media_content_id)
+
+#            """Only sync device with Meural API if current item no longer matches."""
+#            if localitem != remoteitem:
+#                _LOGGER.warning("Syncing with Meural API because local item ID %s is not remote item ID %s", self._media_content_id, remoteitem)
+#                await self.meural.sync_device(self.meural_device_id)
 
     @property
     def name(self):
