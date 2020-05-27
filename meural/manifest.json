@@ -2,7 +2,7 @@
   "domain": "meural",
   "name": "Meural",
   "config_flow": true,
-  "documentation": "https://www.home-assistant.io/integrations/meural",
+  "documentation": "https://github.com/GuySie/ha-meural",
   "requirements": [],
   "ssdp": [],
   "zeroconf": [],
