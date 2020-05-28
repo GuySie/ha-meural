@@ -137,6 +137,12 @@ class LocalMeural:
     async def send_set_landscape(self):
         return await self.request("post", f"control_command/set_orientation/landscape/")
 
+    async def send_change_gallery(self, gallery_id):
+        return await self.request("post", f"control_command/change_gallery/{gallery_id}")
+
+    async def send_change_item(self, item_id):
+        return await self.request("post", f"control_command/change_item/{item_id}")
+
     async def send_get_backlight(self):
         return await self.request("get", f"get_backlight/")
 
