@@ -18,6 +18,7 @@ from homeassistant.components.media_player.const import (
     SUPPORT_NEXT_TRACK,
     SUPPORT_PAUSE,
     SUPPORT_PLAY,
+    SUPPORT_PLAY_MEDIA,    
     SUPPORT_PREVIOUS_TRACK,
     SUPPORT_SHUFFLE_SET,
     SUPPORT_TURN_OFF,
@@ -36,6 +37,7 @@ MEURAL_SUPPORT = (
     | SUPPORT_NEXT_TRACK 
     | SUPPORT_PAUSE 
     | SUPPORT_PLAY 
+    | SUPPORT_PLAY_MEDIA
     | SUPPORT_PREVIOUS_TRACK 
     | SUPPORT_SHUFFLE_SET 
     | SUPPORT_TURN_OFF 
@@ -114,11 +116,13 @@ class MeuralEntity(MediaPlayerEntity):
         self.meural = meural
         self._meural_device = device
         self._galleries = []
-
-        self._pause_duration = 0
-        self._sleep = True
-        self._media_content_id = 0
+        self._gallery_status = []
         self._current_item = []
+
+        self._media_content_id = 0
+        self._pause_duration = 0
+
+        self._sleep = True
 
     @property
     def meural_device_id(self):
@@ -143,8 +147,8 @@ class MeuralEntity(MediaPlayerEntity):
         self._galleries = device_galleries  
 
         """Set up first item to display"""
-        localdata = await self.local_meural.send_get_gallery_status()
-        self._current_item = await self.meural.get_item(int(localdata["current_item"]))
+        self._gallery_status = await self.local_meural.send_get_gallery_status()
+        self._current_item = await self.meural.get_item(int(self._gallery_status["current_item"]))
 
     async def async_update(self):
         self._sleep = await self.local_meural.send_get_sleep()
@@ -152,12 +156,12 @@ class MeuralEntity(MediaPlayerEntity):
         """Only poll the Meural API if the device is not sleeping."""
         if self._sleep == False:
             self._meural_device = await self.meural.get_device(self.meural_device_id)
+            self._gallery_status = await self.local_meural.send_get_gallery_status()
 
             """Check what item the device was displaying, what item the device is currently displaying, and what item the Meural API thinks we're currently displaying."""
+#            remoteitem = int(self._meural_device["frameStatus"]["currentItem"])
             olditem = self._media_content_id
-            remoteitem = int(self._meural_device["frameStatus"]["currentItem"])
-            localdata = await self.local_meural.send_get_gallery_status()
-            localitem = int(localdata["current_item"])
+            localitem = int(self._gallery_status["current_item"])
             self._media_content_id = localitem
 
             """Only get item information if the local current item has changed since last poll."""            
@@ -192,11 +196,7 @@ class MeuralEntity(MediaPlayerEntity):
     @property
     def source(self):
         """Name of the current input source."""
-        sourceid = self._meural_device["currentGallery"]
-        inputsource = [g["name"] for g in self._galleries if g["id"] == sourceid]
-        if inputsource is None:
-            _LOGGER.warning("Source %s not found", sourceid)        
-        return inputsource
+        return self._gallery_status["current_gallery_name"]
 
     @property
     def supported_features(self):
@@ -327,7 +327,7 @@ class MeuralEntity(MediaPlayerEntity):
         source = next((g["id"] for g in self._galleries if g["name"] == source), None)
         if source is None:
             _LOGGER.warning("Source %s not found", source)
-        await self.meural.device_load_gallery(self.meural_device_id, source)
+        await self.local_meural.send_change_gallery(source)
 
     async def async_media_previous_track(self):
         """Send previous track command."""
@@ -360,3 +360,13 @@ class MeuralEntity(MediaPlayerEntity):
     async def async_set_shuffle(self, shuffle):
         """Enable/disable shuffling."""
         await self.meural.update_device(self.meural_device_id, {"imageShuffle": shuffle})
+
+    async def async_play_media(self, media_type, media_id, **kwargs):
+        """Display a piece of artwork. HOWEVER, this artwork has to be in the currently displayed playlist, or unexpected behavior can occur."""
+        currentgallery_id = self._gallery_status["current_gallery"]
+        currentitems = await self.local_meural.send_get_items_by_gallery(currentgallery_id)
+        in_playlist = next((g["title"] for g in currentitems if g["id"] == media_id), None)
+        if in_playlist is None:
+            _LOGGER.warning("Can't play media: Item %s is not in current playlist %s", media_id, self._gallery_status["current_gallery_name"])
+        else:
+            await self.local_meural.send_change_item(media_id)

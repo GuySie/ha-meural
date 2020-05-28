@@ -160,3 +160,7 @@ class LocalMeural:
 
     async def send_get_gallery_status(self):
         return await self.request("get", f"get_gallery_status_json/")
+
+    async def send_get_items_by_gallery(self, gallery_id):
+        return await self.request("get", f"get_frame_items_by_gallery_json/{gallery_id}")
+        
