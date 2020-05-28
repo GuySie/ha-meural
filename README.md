@@ -1,7 +1,7 @@
 # ha-meural
 **Integration for Meural Canvas digital art frame in Home Assistant**  
 
-*Last master update: 27 May 2020*  
+*Last master update: 28 May 2020*  
 *Previous master update: 26 May 2020*  
 
 The Netgear Meural Canvas is a digital art frame with both a local interface and a cloud API.  
@@ -58,7 +58,9 @@ The available calls in this javascript are:
 */remote/postcard/*  
 
 # Google Assistant
-Meural currently only supports Alexa voice commands for the Canvas. However, if your Home Assistant supports Google Assistant - either configured manually or via Nabu Casa - you can expose the Canvas entity and control it via Google Assistant. A media player in Home Assistant exposes OnOff and Modes to Google. This means you can turn the Canvas on or off and select different playlists for the Canvas to display. Change the name of your Canvas to something you can pronounce - if you want to call your Canvas 'Meural', spell it 'Mural'. For example, say:  
+Meural currently only supports Alexa voice commands for the Canvas. However, if your Home Assistant supports Google Assistant - either configured manually or via Nabu Casa - you can expose the Canvas entity and control it via Google Assistant. A media player in Home Assistant exposes OnOff and Modes to Google. This means you can turn the Canvas on or off and select different playlists for the Canvas to display. Change the name of your Canvas to something you can pronounce - if you want to call your Canvas 'Meural', spell it 'Mural'.  
+
+For example, say:  
 *"Hey Google, turn on (canvas name)."*  
 *"Hey Google, set input source to (playlist name) on (canvas name)."*  
 *"Hey Google, turn off (canvas name)."*  
