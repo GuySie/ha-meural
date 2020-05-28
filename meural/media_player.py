@@ -119,9 +119,7 @@ class MeuralEntity(MediaPlayerEntity):
         self._gallery_status = []
         self._current_item = []
 
-        self._media_content_id = 0
         self._pause_duration = 0
-
         self._sleep = True
 
     @property
@@ -155,24 +153,23 @@ class MeuralEntity(MediaPlayerEntity):
 
         """Only poll the Meural API if the device is not sleeping."""
         if self._sleep == False:
+            """Save orientation and item we had before polling."""
+            old_orientation = self._meural_device["orientation"]
             self._meural_device = await self.meural.get_device(self.meural_device_id)
+            old_item = int(self._gallery_status["current_item"])
             self._gallery_status = await self.local_meural.send_get_gallery_status()
 
-            """Check what item the device was displaying, what item the device is currently displaying, and what item the Meural API thinks we're currently displaying."""
-#            remoteitem = int(self._meural_device["frameStatus"]["currentItem"])
-            olditem = self._media_content_id
-            localitem = int(self._gallery_status["current_item"])
-            self._media_content_id = localitem
-
-            """Only get item information if the local current item has changed since last poll."""            
-            if olditem != localitem:
-#                _LOGGER.warning("Getting item from Meural API for ID %s", self._media_content_id)
-                self._current_item = await self.meural.get_item(self._media_content_id)
-
-#            """Only sync device with Meural API if current item no longer matches."""
-#            if localitem != remoteitem:
-#                _LOGGER.warning("Syncing with Meural API because local item ID %s is not remote item ID %s", self._media_content_id, remoteitem)
-#                await self.meural.sync_device(self.meural_device_id)
+            """Check if current item or orientation have changed."""
+            local_item = int(self._gallery_status["current_item"])
+            new_orientation = self._meural_device["orientation"]
+            if old_item != local_item:
+                """Only get item information if current item has changed since last poll."""
+                _LOGGER.warning("Item changed. Getting item from Meural API for ID %s", local_item)
+                self._current_item = await self.meural.get_item(local_item)
+            elif old_orientation != new_orientation:
+                """If orientationMatch is enabled, current item in gallery_status will not reflect item displayed when orientation changes. Force update of gallery_status by going forward."""
+                _LOGGER.warning("Orientation changed. Force update.")
+                await self.local_meural.send_key_right()             
 
     @property
     def name(self):
@@ -195,7 +192,7 @@ class MeuralEntity(MediaPlayerEntity):
 
     @property
     def source(self):
-        """Name of the current input source."""
+        """Name of the current playlist."""
         return self._gallery_status["current_gallery_name"]
 
     @property
@@ -205,17 +202,17 @@ class MeuralEntity(MediaPlayerEntity):
 
     @property
     def source_list(self):
-        """List of available input sources."""
+        """List of available playlists."""
         return [g["name"] for g in self._galleries]
 
     @property
     def media_content_id(self):
         """Return the content ID of current playing media."""
-        return self._media_content_id
+        return int(self._gallery_status["current_item"])
 
     @property
     def media_content_type(self):
-        """Return the content type of current playing media. Photo/art type does not exist, use Music as alternative."""
+        """Return the content type of current playing media. Because Image does not support artist names, use Music as alternative."""
         return MEDIA_TYPE_MUSIC
 
     @property
@@ -230,7 +227,7 @@ class MeuralEntity(MediaPlayerEntity):
 
     @property
     def media_artist(self):
-        """Artist of current playing media, music track only. Replaced with artist's name and the artwork's year."""        
+        """Artist of current playing media, music track only. Replaced with artist name and the artwork year."""        
         if self._current_item["artistName"] is not None:
             if self._current_item["year"] is not None:
                 return self._current_item["artistName"] + ", " + self._current_item["year"]
@@ -278,6 +275,7 @@ class MeuralEntity(MediaPlayerEntity):
         fillMode=None, 
         schedulerEnabled=None, 
         galleryRotation=None):
+        """Set the configuration options on the Meural server."""
         params = {}
         if orientation is not None:
             params["orientation"] = orientation
@@ -314,27 +312,30 @@ class MeuralEntity(MediaPlayerEntity):
         await self.meural.update_device(self.meural_device_id, params)
 
     async def async_set_brightness(self, brightness):
+        """Change backlight brightness setting."""
         await self.local_meural.send_control_backlight(brightness)
 
     async def async_reset_brightness(self):
+        """Automatically adjust backlight to room's lighting according to ambient light sensor."""
         await self.local_meural.send_als_calibrate_off()
 
     async def async_toggle_informationcard(self):
+        """Toggle display of the information card."""
         await self.local_meural.send_key_up()
 
     async def async_select_source(self, source):
-        """Select input source."""
+        """Select playlist to display."""
         source = next((g["id"] for g in self._galleries if g["name"] == source), None)
         if source is None:
             _LOGGER.warning("Source %s not found", source)
         await self.local_meural.send_change_gallery(source)
 
     async def async_media_previous_track(self):
-        """Send previous track command."""
+        """Send previous image command."""
         await self.local_meural.send_key_left()
 
     async def async_media_next_track(self):
-        """Send next track command."""
+        """Send next image command."""
         await self.local_meural.send_key_right()
 
     async def async_turn_on(self):
@@ -362,7 +363,7 @@ class MeuralEntity(MediaPlayerEntity):
         await self.meural.update_device(self.meural_device_id, {"imageShuffle": shuffle})
 
     async def async_play_media(self, media_type, media_id, **kwargs):
-        """Display a piece of artwork. HOWEVER, this artwork has to be in the currently displayed playlist, or unexpected behavior can occur."""
+        """Display an image. However, this image has to be in the currently selected playlist, or unexpected behavior can occur."""
         currentgallery_id = self._gallery_status["current_gallery"]
         currentitems = await self.local_meural.send_get_items_by_gallery(currentgallery_id)
         in_playlist = next((g["title"] for g in currentitems if g["id"] == media_id), None)
