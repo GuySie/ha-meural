@@ -15,24 +15,12 @@ reset_brightness:
     entity_id:
       description: Entity ID of the Meural Canvas to update.
       example: "media_player.meural-123"
-set_device_orientation:
-  description: Manually override the orientation of images on your Canvas.
+toggle_informationcard:
+  description: Toggle display of the information card, a museum-style placard, on your Canvas. 
   fields:
     entity_id:
-      description: Entity ID of the Meural Canvas to update.
+      description: Entity ID of the Meural Canvas to toggle display on.
       example: "media_player.meural-123"
-    orientation:
-      description: Desired orientation of images on your Canvas. Can be horizontal, vertical.
-      example: "vertical"
-load_gallery:
-  description: Change playlist being displayed on your Canvas.
-  fields:
-    entity_id:
-      description: Entity ID of the Meural Canvas to update.
-      example: "media_player.meural-123"
-    gallery:
-      description: Name of gallery to display.
-      example: "Gallery"
 set_device_option:
   description: Set the configuration options of a Meural Canvas.
   fields:
@@ -43,7 +31,7 @@ set_device_option:
       description: Override the orientation of images on your Canvas. Can be horizontal, vertical.
       example: "horizontal" 
     orientationMatch:
-      description: Your Canvas only shows images that match its current orientation, i.e. if your Canvas is in vertical, only vertical images will display. 
+      description: Your Canvas will only show images that match its current orientation, i.e. if your Canvas is in vertical, only vertical images will display. 
       example: "true"
     alsEnabled:
       description: Your Canvas will automatically adjusts its brightness to match its surroundings using the Ambient Light Sensor.
@@ -73,7 +61,7 @@ set_device_option:
       description: Your Canvas will show help text when displaying a preview of images in the playlist.
       example: "true"
     gestureFlip:
-      description: Your Canvas will invert horizontal gestures. Applies on image rotation in a playlist and on-screen menu selections.
+      description: Your Canvas will invert left/right controls. Applies on image rotation in a playlist and on-screen menu selections.
       example: "false"
     backgroundColor:
       description: Color displayed behind images that don't fill the frame. Can be grey, white, black.

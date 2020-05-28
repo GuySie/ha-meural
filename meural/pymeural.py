@@ -81,6 +81,9 @@ class PyMeural:
     async def sync_device(self, device_id):
         return await self.request("post", f"devices/{device_id}/sync")
 
+    async def get_item(self, item_id):
+        return await self.request("get", f"items/{item_id}")
+
 class LocalMeural:
     def __init__(self, device, session: aiohttp.ClientSession):
         self.ip = device["localIp"]
