@@ -11,7 +11,7 @@ This integration leverages Meural's API and local interface to control the Meura
 # Installation
 Copy the `meural` folder into your Home Assistant's `custom_components` folder and restart Home Assistant. Go to *Configuration*, *Integrations*, click the + to add a new and integration and  the Meural integration. Log in with your Netgear account when setting up. The integration will detect all Canvas devices registered to your account. Each Canvas will become a Media Player entity and can be added to your Lovelace UI using any component that supports it, for example the default Media Control card. The entity will correspond to the name you have given it   
 
-![Meural Canvas in Media Control card](mediacontrolcard.png)
+![Meural Canvas in Media Control card](https://raw.githubusercontent.com/GuySie/ha-meural/localdevice/images/mediacontrolcard.png)
 
 The integration supports built-in media player service calls to pause, play, play a specific item, go to the next/previous track (artwork), select a source (art playlist), set shuffle mode, and turn on or turn off:
 *media_player.media_pause*  
@@ -31,7 +31,7 @@ Additional services built into this integration are:
 *meural.toggle_informationcard*  
 These services are fully documented in services.yaml.
 
-![Meural Canvas in entity settings](entitysettings.png)
+![Meural Canvas in entity settings](https://raw.githubusercontent.com/GuySie/ha-meural/localdevice/images/entitysettings.png)
 
 **Tip:** The official Meural settings for the sensitivity of brightness to ambient light sensor reading are limited to high (100), medium (20) or low (4). But you can make it any value of sensitivity, on a scale of 0 to 100, using *set_device_option* and setting *alsSensitivity*. I keep mine set to 2.
 
