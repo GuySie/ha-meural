@@ -63,6 +63,14 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     )
 
     platform.async_register_entity_service(
+        "preview_image",
+        {
+            vol.Required("file"): str,
+        },
+        "async_preview_image",
+    )
+
+    platform.async_register_entity_service(
         "reset_brightness",
         {},
         "async_reset_brightness",
@@ -380,3 +388,7 @@ class MeuralEntity(MediaPlayerEntity):
                 await self.local_meural.send_change_item(media_id)
         else:
             _LOGGER.warning("Can't play media: %s is not an item ID", media_id)
+
+    async def async_preview_image(self, file):
+        test = await self.local_meural.send_postcard(file)
+        _LOGGER.warning("Image %s ", test)
