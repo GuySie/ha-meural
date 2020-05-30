@@ -74,7 +74,7 @@ The available calls in this javascript are:
 */remote/control_command_post/delete_wifi_connection/*  
 */remote/postcard/*  
 
-If possible, the integration prefers using the local calls instead of the Meural API. However, some settings are only available via the Meural API. This includes functionality such as pausing (changing image duration), setting shuffle, or switching to playlists that have not yet been uploaded to the device.
+If possible, the integration prefers using the local calls instead of the Meural API. However, some settings are only available via the Meural API. This includes functionality such as pausing (changing image duration) or setting shuffle.
 
 # Google Assistant
 Meural currently only supports Alexa voice commands for the Canvas. However, if your Home Assistant supports Google Home / Google Assistant - either [configured manually](https://www.home-assistant.io/integrations/google_assistant/) or via [Nabu Casa](https://www.nabucasa.com/config/google_assistant/) - you can expose a Canvas entity and control it via Google. A media player in Home Assistant currently supports OnOff (turning the entity on or off) and Modes (changing the entity's input source) in Google. This means you can turn the Canvas on or off and select different playlists for the Canvas to display. Change the name of your Canvas to something you can pronounce - if you want to call your Canvas 'Meural', spell it 'Mural'.  
