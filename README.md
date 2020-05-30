@@ -13,7 +13,7 @@ Copy the `meural` folder into your Home Assistant's `custom_components` folder a
 
 ![Meural Canvas in Media Control card](https://raw.githubusercontent.com/GuySie/ha-meural/localdevice/images/mediacontrolcard.png)
 
-The integration supports built-in media player service calls to pause, play, play a specific item, go to the next/previous track (artwork), select a source (art playlist), set shuffle mode, and turn on or turn off:
+The integration supports built-in media player service calls to pause, play, play a specific item, go to the next/previous track (artwork), select a source (art playlist), set shuffle mode, and turn on or turn off:  
 *media_player.media_pause*  
 *media_player.media_play*  
 *media_player.play_media*  
