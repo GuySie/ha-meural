@@ -98,7 +98,7 @@ For other currently missing functionality, such as next/previous track, you can 
     service: media_player.media_next_track
 ```
 
-Which would work by saying:
+Which would work by saying:  
 *"Hey Google, activate next art."*  
 
 # Thanks
