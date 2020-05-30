@@ -138,15 +138,19 @@ class MeuralEntity(MediaPlayerEntity):
         )
 
     async def async_added_to_hass(self):
-        """Include user galleries that may not be synced to the device galleries yet."""
+        """Set up galleries. Include user galleries that may not be synced to the device galleries yet."""
         device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
         user_galleries = await self.meural.get_user_galleries()
         [device_galleries.append(x) for x in user_galleries if x not in device_galleries]
         self._galleries = device_galleries  
 
-        """Set up first item to display"""
+        """Set up first item to display."""
         self._gallery_status = await self.local_meural.send_get_gallery_status()
         self._current_item = await self.meural.get_item(int(self._gallery_status["current_item"]))
+
+        """Set up default image duration."""
+        self._meural_device = await self.meural.get_device(self.meural_device_id)
+        self._pause_duration = self._meural_device["imageDuration"]
 
     async def async_update(self):
         self._sleep = await self.local_meural.send_get_sleep()
@@ -164,12 +168,12 @@ class MeuralEntity(MediaPlayerEntity):
             new_orientation = self._meural_device["orientation"]
             if old_item != local_item:
                 """Only get item information if current item has changed since last poll."""
-                _LOGGER.warning("Item changed. Getting item from Meural API for ID %s", local_item)
+#                _LOGGER.warning("Item changed. Getting item from Meural API for ID %s", local_item)
                 self._current_item = await self.meural.get_item(local_item)
             elif old_orientation != new_orientation:
-                """If orientationMatch is enabled, current item in gallery_status will not reflect item displayed when orientation changes. Force update of gallery_status by going forward."""
-                _LOGGER.warning("Orientation changed. Force update.")
-                await self.local_meural.send_key_right()             
+                """If orientationMatch is enabled, current item in gallery_status will not reflect item displayed after orientation changes. Force update of gallery_status by reloading gallery."""
+#                _LOGGER.warning("Orientation changed. Force update.")
+                await self.local_meural.send_change_gallery(self._gallery_status["current_gallery"])
 
     @property
     def name(self):
@@ -363,11 +367,16 @@ class MeuralEntity(MediaPlayerEntity):
         await self.meural.update_device(self.meural_device_id, {"imageShuffle": shuffle})
 
     async def async_play_media(self, media_type, media_id, **kwargs):
-        """Display an image. However, this image has to be in the currently selected playlist, or unexpected behavior can occur."""
-        currentgallery_id = self._gallery_status["current_gallery"]
-        currentitems = await self.local_meural.send_get_items_by_gallery(currentgallery_id)
-        in_playlist = next((g["title"] for g in currentitems if g["id"] == media_id), None)
-        if in_playlist is None:
-            _LOGGER.warning("Can't play media: Item %s is not in current playlist %s", media_id, self._gallery_status["current_gallery_name"])
+        """Display an image. To use a local call this image has to be in the currently selected playlist, or unexpected behavior can occur. Call Meural API if this is not the case."""
+        if media_id.isdigit():
+            currentgallery_id = self._gallery_status["current_gallery"]
+            currentitems = await self.local_meural.send_get_items_by_gallery(currentgallery_id)
+            in_playlist = next((g["title"] for g in currentitems if g["id"] == media_id), None)
+            if in_playlist is None:
+#                _LOGGER.warning("Item %s is not in current playlist, trying to play via remote API.", media_id)
+                await self.meural.device_load_item(self.meural_device_id, media_id)
+            else:
+#                _LOGGER.warning("Item %s in current playlist %s, loading locally.", media_id, self._gallery_status["current_gallery_name"])
+                await self.local_meural.send_change_item(media_id)
         else:
-            await self.local_meural.send_change_item(media_id)
+            _LOGGER.warning("Can't play media: %s is not an item ID", media_id)

@@ -69,6 +69,9 @@ class PyMeural:
     async def device_load_gallery(self, device_id, gallery_id):
         return await self.request("post", f"devices/{device_id}/galleries/{gallery_id}")
 
+    async def device_load_item(self, device_id, item_id):
+        return await self.request("post", f"devices/{device_id}/items/{item_id}")
+
     async def get_device(self, device_id):
         return await self.request("get", f"devices/{device_id}")
 
@@ -163,4 +166,3 @@ class LocalMeural:
 
     async def send_get_items_by_gallery(self, gallery_id):
         return await self.request("get", f"get_frame_items_by_gallery_json/{gallery_id}")
-        

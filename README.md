@@ -1,25 +1,42 @@
-# ha-meural
+# HA-meural
 **Integration for Meural Canvas digital art frame in Home Assistant**  
 
-*Last master update: 28 May 2020*  
-*Previous master update: 26 May 2020*  
+*Last master update: xx May 2020*  
+*Previous master update: 28 May 2020*  
 
 The Netgear Meural Canvas is a digital art frame with both a local interface and a cloud API.  
 Home Assistant is an open source home automation package that puts local control and privacy first.  
 This integration leverages Meural's API and local interface to control the Meural Canvas as a media player in Home Assistant.  
 
 # Installation
-Copy the 'meural' folder into your Home Assistant's 'custom_components' folder and restart Home Assistant. Log in with your Netgear account when setting up the integration. The integration will detect all Canvas devices registered to your account. Each Canvas will become a Media Player entity and can be added to your Lovelace UI using any component that supports it, for example the default Media Control card.  
+Copy the `meural` folder into your Home Assistant's `custom_components` folder and restart Home Assistant. Go to *Configuration*, *Integrations*, click the + to add a new and integration and  the Meural integration. Log in with your Netgear account when setting up. The integration will detect all Canvas devices registered to your account. Each Canvas will become a Media Player entity and can be added to your Lovelace UI using any component that supports it, for example the default Media Control card. The entity will correspond to the name you have given it   
 
-The integration supports built-in media player service calls to pause, play, go to next/previous track (artwork), select source (art playlist), set shuffle, turn on and turn off. Additional services built into this integration are:  
+![Meural Canvas in Media Control card](mediacontrolcard.png)
+
+The integration supports built-in media player service calls to pause, play, play a specific item, go to the next/previous track (artwork), select a source (art playlist), set shuffle mode, and turn on or turn off:
+*media_player.media_pause*  
+*media_player.media_play*  
+*media_player.play_media*  
+*media_player.media_next_track*  
+*media_player.media_previous_track*  
+*media_player.select_source*  
+*media_player.shuffle_set*  
+*media_player.turn_on*  
+*media_player.turn_off*  
+
+Additional services built into this integration are:  
 *meural.set_device_option*  
 *meural.set_brightness*  
 *meural.reset_brightness*  
 *meural.toggle_informationcard*  
 These services are fully documented in services.yaml.
 
+![Meural Canvas in entity settings](entitysettings.png)
+
+**Tip:** The official Meural settings for the sensitivity of brightness to ambient light sensor reading are limited to high (100), medium (20) or low (4). But you can make it any value of sensitivity, on a scale of 0 to 100, using *set_device_option* and setting *alsSensitivity*. I keep mine set to 2.
+
 # Meural API
-Meural has a REST API that their mobile app and web-interface run on. Unofficial information on this API can be found here:
+Meural has a REST API that their mobile app and web-interface run on. Unofficial documentation on this API can be found here:
 https://documenter.getpostman.com/view/1657302/RVnWjKUL?version=latest
 
 # Local Web Server
@@ -57,16 +74,32 @@ The available calls in this javascript are:
 */remote/control_command_post/delete_wifi_connection/*  
 */remote/postcard/*  
 
+If possible, the integration prefers using the local calls instead of the Meural API. However, some settings are only available via the Meural API. This includes functionality such as pausing (changing image duration), setting shuffle, or switching to playlists that have not yet been uploaded to the device.
+
 # Google Assistant
-Meural currently only supports Alexa voice commands for the Canvas. However, if your Home Assistant supports Google Assistant - either configured manually or via Nabu Casa - you can expose the Canvas entity and control it via Google Assistant. A media player in Home Assistant exposes OnOff and Modes to Google. This means you can turn the Canvas on or off and select different playlists for the Canvas to display. Change the name of your Canvas to something you can pronounce - if you want to call your Canvas 'Meural', spell it 'Mural'.  
+Meural currently only supports Alexa voice commands for the Canvas. However, if your Home Assistant supports Google Home / Google Assistant - either [configured manually](https://www.home-assistant.io/integrations/google_assistant/) or via [Nabu Casa](https://www.nabucasa.com/config/google_assistant/) - you can expose a Canvas entity and control it via Google. A media player in Home Assistant currently supports OnOff (turning the entity on or off) and Modes (changing the entity's input source) in Google. This means you can turn the Canvas on or off and select different playlists for the Canvas to display. Change the name of your Canvas to something you can pronounce - if you want to call your Canvas 'Meural', spell it 'Mural'.  
 
 For example, say:  
 *"Hey Google, turn on (canvas name)."*  
 *"Hey Google, set input source to (playlist name) on (canvas name)."*  
 *"Hey Google, turn off (canvas name)."*  
 
-A proof of concept video can be found here:
+An example video can be found here:  
 https://twitter.com/GuySie/status/1265349696119283716
+
+For other currently missing functionality, such as next/previous track, you can create scripts in Home Assistant that can be exposed to Google that trigger the corresponding calls. E.g. write a script using the built-in editor such as:
+
+```
+'Go to next image on Meural Canvas':
+  alias: next art
+  sequence:
+  - data: {}
+    entity_id: media_player.meural-123
+    service: media_player.media_next_track
+```
+
+Which would work by saying:
+*"Hey Google, activate next art."*  
 
 # Thanks
 The first version of this integration was built by [@balloob](https://github.com/balloob) - many, many thanks to him. Blame [@guysie](https://github.com/guysie) for all code added afterwards. I'm not a dev, so I apologize in advance for code quality.  
