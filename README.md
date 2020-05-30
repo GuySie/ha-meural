@@ -9,7 +9,7 @@ Home Assistant is an open source home automation package that puts local control
 This integration leverages Meural's API and local interface to control the Meural Canvas as a media player in Home Assistant.  
 
 # Installation
-Copy the `meural` folder into your Home Assistant's `custom_components` folder and restart Home Assistant. Go to *Configuration*, *Integrations*, click the + to add a new and integration and  the Meural integration. Log in with your Netgear account when setting up. The integration will detect all Canvas devices registered to your account. Each Canvas will become a Media Player entity and can be added to your Lovelace UI using any component that supports it, for example the default Media Control card. The entity will correspond to the name you have given it   
+Copy the `meural` folder into your Home Assistant's `custom_components` folder and restart Home Assistant. Go to *Configuration*, *Integrations*, click the + to add a new integration and find the Meural integration to set up. Log in with your Netgear account. The integration will detect all Canvas devices registered to your account. Each Canvas will become a Media Player entity and can be added to your Lovelace UI using any component that supports it, for example the default Media Control card. The entity will correspond to the name you have given the Canvas. By default your Canvas has a name consisting of a painter's name and 3 digits like `picasso-428`, which would result in the entity `media_player.picasso-428` being created.
 
 ![Meural Canvas in Media Control card](https://raw.githubusercontent.com/GuySie/ha-meural/localdevice/images/mediacontrolcard.png)
 
