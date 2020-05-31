@@ -5,10 +5,6 @@ from typing import Dict
 import aiohttp
 import async_timeout
 
-from PIL import Image
-import requests
-from io import BytesIO
-
 BASE_URL = "https://api.meural.com/v0/"
 
 
