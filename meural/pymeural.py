@@ -97,9 +97,9 @@ class LocalMeural:
         kwargs = {}
         if data:
             if method == "get":
-                data["query"] = data
+                kwargs["query"] = data
             else:
-                data["data"] = data
+                kwargs["data"] = data
         with async_timeout.timeout(10):
             resp = await self.session.request(
                 method,
