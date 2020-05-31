@@ -390,5 +390,5 @@ class MeuralEntity(MediaPlayerEntity):
             _LOGGER.warning("Can't play media: %s is not an item ID", media_id)
 
     async def async_preview_image(self, file):
-        test = await self.local_meural.send_postcard(file)
-        _LOGGER.warning("Image %s ", test)
+        await self.local_meural.send_postcard(file)
+        

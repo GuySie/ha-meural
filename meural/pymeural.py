@@ -172,8 +172,5 @@ class LocalMeural:
         return await self.request("get", f"get_frame_items_by_gallery_json/{gallery_id}")
 
     async def send_postcard(self, url):
-        response = requests.get(url)
-        img = Image.open(BytesIO(response.content))
-        return img
-
-#        return await self.request("post", f"postcard/", image)        
+        """Magically turn the image URL into an actual image object that we can POST to /remote/postcard/ as data"""
+        return await self.request("post", f"postcard/", data)        
