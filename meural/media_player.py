@@ -18,7 +18,7 @@ from homeassistant.components.media_player.const import (
     SUPPORT_NEXT_TRACK,
     SUPPORT_PAUSE,
     SUPPORT_PLAY,
-    SUPPORT_PLAY_MEDIA,    
+    SUPPORT_PLAY_MEDIA,
     SUPPORT_PREVIOUS_TRACK,
     SUPPORT_SHUFFLE_SET,
     SUPPORT_TURN_OFF,
@@ -34,13 +34,13 @@ _LOGGER = logging.getLogger(__name__)
 
 MEURAL_SUPPORT = (
     SUPPORT_SELECT_SOURCE
-    | SUPPORT_NEXT_TRACK 
-    | SUPPORT_PAUSE 
-    | SUPPORT_PLAY 
+    | SUPPORT_NEXT_TRACK
+    | SUPPORT_PAUSE
+    | SUPPORT_PLAY
     | SUPPORT_PLAY_MEDIA
-    | SUPPORT_PREVIOUS_TRACK 
-    | SUPPORT_SHUFFLE_SET 
-    | SUPPORT_TURN_OFF 
+    | SUPPORT_PREVIOUS_TRACK
+    | SUPPORT_SHUFFLE_SET
+    | SUPPORT_TURN_OFF
     | SUPPORT_TURN_ON
 )
 
@@ -80,13 +80,13 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         "set_device_option",
         {
             vol.Optional("orientation"): str,
-            vol.Optional("orientationMatch"): bool,           
+            vol.Optional("orientationMatch"): bool,
             vol.Optional("alsEnabled"): bool,
             vol.Optional("alsSensitivity"): vol.All(
                 vol.Coerce(int),
                 vol.Range(min=0, max=100)
             ),
-            vol.Optional("goesDark"): bool,            
+            vol.Optional("goesDark"): bool,
             vol.Optional("imageShuffle"): bool,
             vol.Optional("imageDuration"): vol.All(
                 vol.Coerce(int),
@@ -234,7 +234,7 @@ class MeuralEntity(MediaPlayerEntity):
 
     @property
     def media_artist(self):
-        """Artist of current playing media, music track only. Replaced with artist name and the artwork year."""        
+        """Artist of current playing media, music track only. Replaced with artist name and the artwork year."""
         if self._current_item["artistName"] is not None:
             if self._current_item["year"] is not None:
                 return self._current_item["artistName"] + ", " + self._current_item["year"]
@@ -253,7 +253,7 @@ class MeuralEntity(MediaPlayerEntity):
     def media_image_url(self):
         """Image url of current playing media."""
         return self._current_item["image"]
- 
+
     @property
     def media_image_remotely_accessible(self) -> bool:
         """If the image url is remotely accessible."""
@@ -265,22 +265,22 @@ class MeuralEntity(MediaPlayerEntity):
         return self._meural_device["imageShuffle"]
 
     async def async_set_device_option(
-        self, 
-        orientation=None, 
-        orientationMatch=None, 
-        alsEnabled=None, 
-        alsSensitivity=None, 
-        goesDark=None, 
-        imageShuffle=None, 
-        imageDuration=None, 
-        previewDuration=None, 
-        overlayDuration=None, 
-        gestureFeedback=None, 
-        gestureFeedbackHelp=None, 
-        gestureFlip=None, 
-        backgroundColor=None, 
-        fillMode=None, 
-        schedulerEnabled=None, 
+        self,
+        orientation=None,
+        orientationMatch=None,
+        alsEnabled=None,
+        alsSensitivity=None,
+        goesDark=None,
+        imageShuffle=None,
+        imageDuration=None,
+        previewDuration=None,
+        overlayDuration=None,
+        gestureFeedback=None,
+        gestureFeedbackHelp=None,
+        gestureFlip=None,
+        backgroundColor=None,
+        fillMode=None,
+        schedulerEnabled=None,
         galleryRotation=None):
         """Set the configuration options on the Meural server."""
         params = {}
@@ -299,13 +299,13 @@ class MeuralEntity(MediaPlayerEntity):
         if imageDuration is not None:
             params["imageDuration"] = imageDuration
         if previewDuration is not None:
-            params["previewDuration"] = previewDuration     
+            params["previewDuration"] = previewDuration
         if overlayDuration is not None:
             params["overlayDuration"] = overlayDuration
         if gestureFeedback is not None:
             params["gestureFeedback"] = gestureFeedback
         if gestureFeedbackHelp is not None:
-            params["gestureFeedbackHelp"] = gestureFeedbackHelp        
+            params["gestureFeedbackHelp"] = gestureFeedbackHelp
         if gestureFlip is not None:
             params["gestureFlip"] = gestureFlip
         if backgroundColor is not None:
@@ -363,7 +363,7 @@ class MeuralEntity(MediaPlayerEntity):
         if self._pause_duration != 0:
             await self.meural.update_device(self.meural_device_id, {"imageDuration": self._pause_duration})
         else:
-            await self.meural.update_device(self.meural_device_id, {"imageDuration": 300})            
+            await self.meural.update_device(self.meural_device_id, {"imageDuration": 300})
 
     async def async_set_shuffle(self, shuffle):
         """Enable/disable shuffling."""

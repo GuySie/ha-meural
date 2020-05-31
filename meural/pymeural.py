@@ -126,13 +126,13 @@ class LocalMeural:
         return await self.request("post", f"control_command/suspend/")
 
     async def send_key_resume(self):
-        return await self.request("post", f"control_command/resume/")    
+        return await self.request("post", f"control_command/resume/")
 
     async def send_control_backlight(self, brightness):
         return await self.request("post", f"control_command/set_backlight/{brightness}/")
 
     async def send_als_calibrate_off(self):
-        return await self.request("post", f"control_command/als_calibrate/off/")  
+        return await self.request("post", f"control_command/als_calibrate/off/")
 
     async def send_set_portrait(self):
         return await self.request("post", f"control_command/set_orientation/portrait/")
