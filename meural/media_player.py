@@ -47,7 +47,9 @@ MEURAL_SUPPORT = (
 async def async_setup_entry(hass, config_entry, async_add_entities):
     meural = hass.data[DOMAIN][config_entry.entry_id]
     devices = await meural.get_user_devices()
-    async_add_entities(MeuralEntity(meural, device) for device in devices)
+    for device in devices:
+        _LOGGER.info("Adding meural device %s" % (device['alias'], ))
+        async_add_entities([MeuralEntity(meural, device), ])
 
     platform = entity_platform.current_platform.get()
 
@@ -141,8 +143,9 @@ class MeuralEntity(MediaPlayerEntity):
         """Set up galleries. Include user galleries that may not be synced to the device galleries yet."""
         device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
         user_galleries = await self.meural.get_user_galleries()
+        _LOGGER.info("meural %s: %d device galleries, %d user galleries" % (self.name, len(device_galleries), len(user_galleries)))
         [device_galleries.append(x) for x in user_galleries if x not in device_galleries]
-        self._galleries = device_galleries  
+        self._galleries = device_galleries
 
         """Set up first item to display."""
         self._gallery_status = await self.local_meural.send_get_gallery_status()
