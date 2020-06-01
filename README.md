@@ -1,8 +1,8 @@
 # HA-meural
 **Integration for Meural Canvas digital art frame in Home Assistant**  
 
-*Last master update: 30 May 2020*  
-*Previous master update: 28 May 2020*  
+*Last master update: 1 June 2020*  
+*Previous master update: 30 May 2020*  
 
 The Netgear Meural Canvas is a digital art frame with both a local interface and a cloud API.  
 Home Assistant is an open source home automation package that puts local control and privacy first.  
