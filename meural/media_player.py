@@ -376,6 +376,11 @@ class MeuralEntity(MediaPlayerEntity):
 
     async def async_play_media(self, media_type, media_id, **kwargs):
         """Display an image. To use a local call this image has to be in the currently selected playlist, or unexpected behavior can occur. Call Meural API if this is not the case."""
+        # any image type can be sent as a postcard
+        if media_type in [ 'image/jpg', 'image/png', ]:
+            await self.local_meural.send_postcard(media_id, media_type)
+            return
+
         if media_id.isdigit():
             currentgallery_id = self._gallery_status["current_gallery"]
             currentitems = await self.local_meural.send_get_items_by_gallery(currentgallery_id)
@@ -391,4 +396,4 @@ class MeuralEntity(MediaPlayerEntity):
 
     async def async_preview_image(self, file):
         await self.local_meural.send_postcard(file)
-        
+

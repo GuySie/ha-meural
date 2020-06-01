@@ -1,9 +1,14 @@
+import logging
+import json
+
 from functools import partial
 
 from typing import Dict
 
 import aiohttp
 import async_timeout
+
+_LOGGER = logging.getLogger(__name__)
 
 BASE_URL = "https://api.meural.com/v0/"
 
@@ -90,6 +95,7 @@ class PyMeural:
 class LocalMeural:
     def __init__(self, device, session: aiohttp.ClientSession):
         self.ip = device["localIp"]
+        self.device = device
         self.session = session
 
     async def request(self, method, path, data=None) -> Dict:
@@ -97,9 +103,9 @@ class LocalMeural:
         kwargs = {}
         if data:
             if method == "get":
-                data["query"] = data
+                kwargs["query"] = data
             else:
-                data["data"] = data
+                kwargs["data"] = data
         with async_timeout.timeout(10):
             resp = await self.session.request(
                 method,
@@ -167,6 +173,35 @@ class LocalMeural:
     async def send_get_items_by_gallery(self, gallery_id):
         return await self.request("get", f"get_frame_items_by_gallery_json/{gallery_id}")
 
-    async def send_postcard(self, url):
+    async def send_postcard(self, url, content_type):
         """Magically turn the image URL into an actual image object that we can POST to /remote/postcard/ as data"""
-        return await self.request("post", f"postcard/", data)        
+        # photo uploads are done doing a multipart/form-data form
+        # with key 'photo' and value being the image data
+
+        # FIXME: meural accepts image/jpeg but not image/jpg
+        if content_type == 'image/jpg':
+            content_type = 'image/jpeg'
+
+        _LOGGER.info('meural %s: sending postcard %s' % (
+            self.device['alias'], url))
+        with async_timeout.timeout(10):
+            response = await self.session.get(url)
+            image = await response.read()
+        _LOGGER.info('meural %s: downloaded %d bytes of image' % (
+            self.device['alias'], len(image)))
+
+        data = aiohttp.FormData()
+        data.add_field('photo', image, content_type=content_type)
+        response = await self.session.post(f"http://{self.ip}/remote/postcard",
+            data=data)
+        _LOGGER.info(response)
+        text = await response.text()
+
+        r = json.loads(text)
+        _LOGGER.info('meural %s: uploaded: %s: %s' % (
+                self.device['alias'], r['status'], r['response']))
+        if r['status'] != 'pass':
+            _LOGGER.warning('meural %s: could not upload: %s' % (
+                self.device['alias'], r['response']))
+
+        return response
