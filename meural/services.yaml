@@ -27,9 +27,12 @@ preview_image:
     entity_id:
       description: Entity ID of the Meural Canvas to update.
       example: "media_player.meural-123"
-    file:
+    content_url:
       description: URL of the image to preview.
       example: "https://home-assistant.io/images/cast/splash.png"
+    content_type:
+      description: The type of image to preview. Can be image/jpg or image/png.
+      example: "image/png"
 set_device_option:
   description: Set the configuration options of a Meural Canvas.
   fields:

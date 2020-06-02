@@ -67,7 +67,8 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     platform.async_register_entity_service(
         "preview_image",
         {
-            vol.Required("file"): str,
+            vol.Required("content_url"): str,
+            vol.Required("content_type"): str,
         },
         "async_preview_image",
     )
@@ -149,11 +150,11 @@ class MeuralEntity(MediaPlayerEntity):
 
     async def async_added_to_hass(self):
         """Set up galleries. Include user galleries that may not be synced to the device galleries yet."""
-        device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
-        user_galleries = await self.meural.get_user_galleries()
-        _LOGGER.info("meural %s: %d device galleries, %d user galleries" % (self.name, len(device_galleries), len(user_galleries)))
-        [device_galleries.append(x) for x in user_galleries if x not in device_galleries]
-        self._galleries = device_galleries
+#        device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
+#        user_galleries = await self.meural.get_user_galleries()
+#        _LOGGER.info("meural %s: %d device galleries, %d user galleries" % (self.name, len(device_galleries), len(user_galleries)))
+#        [device_galleries.append(x) for x in user_galleries if x not in device_galleries]
+        self._galleries = await self.local_meural.send_get_galleries()
 
         """Set up first item to display."""
         self._gallery_status = await self.local_meural.send_get_gallery_status()
@@ -168,6 +169,8 @@ class MeuralEntity(MediaPlayerEntity):
 
         """Only poll the Meural API if the device is not sleeping."""
         if self._sleep == False:
+            """Update galleries."""
+            self._galleries = await self.local_meural.send_get_galleries()
             """Save orientation and item we had before polling."""
             old_orientation = self._meural_device["orientation"]
             self._meural_device = await self.meural.get_device(self.meural_device_id)
@@ -379,10 +382,10 @@ class MeuralEntity(MediaPlayerEntity):
 
     async def async_play_media(self, media_type, media_id, **kwargs):
         """Display an image. To use a local call this image has to be in the currently selected playlist, or unexpected behavior can occur. Call Meural API if this is not the case."""
-        # any image type can be sent as a postcard
-        if media_type in [ 'image/jpg', 'image/png', ]:
-            await self.local_meural.send_postcard(media_id, media_type)
-            return
+#        any image type can be sent as a postcard
+#        if media_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
+#            await self.local_meural.send_postcard(media_id, media_type)
+#            return
 
         if media_id.isdigit():
             currentgallery_id = self._gallery_status["current_gallery"]
@@ -397,6 +400,7 @@ class MeuralEntity(MediaPlayerEntity):
         else:
             _LOGGER.warning("Can't play media: %s is not an item ID", media_id)
 
-    async def async_preview_image(self, file):
-        await self.local_meural.send_postcard(file)
-
+    async def async_preview_image(self, content_url, content_type):
+        if content_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
+            await self.local_meural.send_postcard(content_url, content_type)
+            return

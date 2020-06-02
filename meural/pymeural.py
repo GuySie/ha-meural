@@ -167,6 +167,9 @@ class LocalMeural:
     async def send_get_wifi_connections(self):
         return await self.request("get", f"get_wifi_connections_json/")
 
+    async def send_get_galleries(self):
+        return await self.request("get", f"get_galleries_json/")
+
     async def send_get_gallery_status(self):
         return await self.request("get", f"get_gallery_status_json/")
 
@@ -174,7 +177,6 @@ class LocalMeural:
         return await self.request("get", f"get_frame_items_by_gallery_json/{gallery_id}")
 
     async def send_postcard(self, url, content_type):
-        """Magically turn the image URL into an actual image object that we can POST to /remote/postcard/ as data"""
         # photo uploads are done doing a multipart/form-data form
         # with key 'photo' and value being the image data
 
