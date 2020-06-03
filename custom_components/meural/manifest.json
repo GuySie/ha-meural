@@ -3,6 +3,7 @@
   "name": "Meural",
   "config_flow": true,
   "documentation": "https://github.com/GuySie/ha-meural",
+  "issue_tracker": "https://github.com/GuySie/ha-meural/issues",
   "requirements": [],
   "ssdp": [],
   "zeroconf": [],
