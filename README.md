@@ -1,8 +1,8 @@
 # HA-meural
 **Integration for Meural Canvas digital art frame in Home Assistant**  
 
-*Last master update: 1 June 2020*  
-*Previous master update: 30 May 2020*  
+*Last master update: xx June 2020*  
+*Previous master update: 1 June 2020*  
 
 The Netgear Meural Canvas is a digital art frame with both a local interface and a cloud API.  
 Home Assistant is an open source home automation package that puts local control and privacy first.  
@@ -14,26 +14,29 @@ Copy the `meural` folder into your Home Assistant's `custom_components` folder a
 ![Meural Canvas in Media Control card](https://raw.githubusercontent.com/GuySie/ha-meural/master/images/mediacontrolcard.png)
 
 The integration supports built-in media player service calls to pause, play, play a specific item, go to the next/previous track (artwork), select a source (art playlist), set shuffle mode, and turn on or turn off:  
-*media_player.media_pause*  
-*media_player.media_play*  
-*media_player.play_media*  
-*media_player.media_next_track*  
-*media_player.media_previous_track*  
-*media_player.select_source*  
-*media_player.shuffle_set*  
-*media_player.turn_on*  
-*media_player.turn_off*  
-
-Additional services built into this integration are:  
-*meural.set_device_option*  
-*meural.set_brightness*  
-*meural.reset_brightness*  
-*meural.toggle_informationcard*  
-These services are fully documented in services.yaml.
+`media_player.media_pause`  
+`media_player.media_play`  
+`media_player.play_media`  
+`media_player.media_next_track`  
+`media_player.media_previous_track`  
+`media_player.select_source`  
+`media_player.shuffle_set`  
+`media_player.turn_on`  
+`media_player.turn_off`  
 
 ![Meural Canvas in entity settings](https://raw.githubusercontent.com/GuySie/ha-meural/master/images/entitysettings.png)
 
-**Tip:** The official Meural settings for the sensitivity of brightness to ambient light sensor reading are limited to high (100), medium (20) or low (4). But you can make it any value of sensitivity, on a scale of 0 to 100, using *set_device_option* and setting *alsSensitivity*. I keep mine set to 2.
+Additional services built into this integration are:  
+`meural.set_device_option`  
+`meural.set_brightness`  
+`meural.reset_brightness`  
+`meural.toggle_informationcard`  
+`meural.preview_image`  
+These services are fully documented in services.yaml.
+
+Service `meural.preview_image` temporarily displays an image on your Canvas. The amount of time preview images will display can be set with `previewDuration` using service `meural.set_device_option`, in the Meural app or in the Meural web interface. This service is most suitable for use in automation when you wish to display non-artwork items temporarily on the Canvas.
+
+**Tip:** The official Meural settings for the sensitivity of brightness to ambient light sensor reading are limited to high (100), medium (20) or low (4). But you can make it any value of sensitivity, on a scale of 0 to 100, using `meural.set_device_option` and setting `alsSensitivity`. I keep mine set to 2.
 
 # Meural API
 Meural has a REST API that their mobile app and web-interface run on. Unofficial documentation on this API can be found here:
@@ -46,33 +49,33 @@ This 'remote controller' is a local web server on the Canvas device available at
 It runs on a javascript available at: http://LOCALIP/static/remote.js
 
 The available calls in this javascript are:  
-*/remote/identify/*  
-*/remote/get_galleries_json/*  
-*/remote/get_gallery_status_json/*  
-*/remote/get_frame_items_by_gallery_json/*  
-*/remote/get_wifi_connections_json/*  
-*/remote/get_backlight/*  
-*/remote/control_check/sleep/*  
-*/remote/control_check/video/*  
-*/remote/control_check/als/*  
-*/remote/control_check/system/*  
-*/remote/control_command/boot_status/image/*  
-*/remote/control_command/set_key/*  
-*/remote/control_command/set_backlight/*  
-*/remote/control_command/suspend*  
-*/remote/control_command/resume*  
-*/remote/control_command/set_orientation/*  
-*/remote/control_command/change_gallery/*  
-*/remote/control_command/change_item/*  
-*/remote/control_command/rtc/*  
-*/remote/control_command/language/*  
-*/remote/control_command/country/*  
-*/remote/control_command/als_calibrate/off/*  
-*/remote/control_command_post/connect_to_new_wifi/*  
-*/remote/control_command_post/connect_to_exist_wifi/*  
-*/remote/control_command_post/connect_to_hidden_wifi/*  
-*/remote/control_command_post/delete_wifi_connection/*  
-*/remote/postcard/*  
+`/remote/identify/`  
+`/remote/get_galleries_json/`  
+`/remote/get_gallery_status_json/`  
+`/remote/get_frame_items_by_gallery_json/`  
+`/remote/get_wifi_connections_json/`  
+`/remote/get_backlight/`  
+`/remote/control_check/sleep/`  
+`/remote/control_check/video/`  
+`/remote/control_check/als/`  
+`/remote/control_check/system/`  
+`/remote/control_command/boot_status/image/`  
+`/remote/control_command/set_key/`  
+`/remote/control_command/set_backlight/`  
+`/remote/control_command/suspend`  
+`/remote/control_command/resume`  
+`/remote/control_command/set_orientation/`  
+`/remote/control_command/change_gallery/`  
+`/remote/control_command/change_item/`  
+`/remote/control_command/rtc/`  
+`/remote/control_command/language/`  
+`/remote/control_command/country/`  
+`/remote/control_command/als_calibrate/off/`  
+`/remote/control_command_post/connect_to_new_wifi/`  
+`/remote/control_command_post/connect_to_exist_wifi/`  
+`/remote/control_command_post/connect_to_hidden_wifi/`  
+`/remote/control_command_post/delete_wifi_connection/`  
+`/remote/postcard/`  
 
 If possible, the integration prefers using the local calls instead of the Meural API. However, some settings are only available via the Meural API. This includes functionality such as pausing (changing image duration) or setting shuffle.
 
@@ -102,4 +105,4 @@ Which would work by saying:
 *"Hey Google, activate next art."*  
 
 # Thanks
-The first version of this integration was built by [@balloob](https://github.com/balloob) - many, many thanks to him. Blame [@guysie](https://github.com/guysie) for all code added afterwards. I'm not a dev, so I apologize in advance for code quality.  
+The first version of this integration was built by [@balloob](https://github.com/balloob) - many, many thanks to him. Blame [@guysie](https://github.com/guysie) for the code added afterwards. Thanks to [@thomasvs](https://github.com/thomasvs) for contributing!

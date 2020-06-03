@@ -1,9 +1,14 @@
+import logging
+import json
+
 from functools import partial
 
 from typing import Dict
 
 import aiohttp
 import async_timeout
+
+_LOGGER = logging.getLogger(__name__)
 
 BASE_URL = "https://api.meural.com/v0/"
 
@@ -90,6 +95,7 @@ class PyMeural:
 class LocalMeural:
     def __init__(self, device, session: aiohttp.ClientSession):
         self.ip = device["localIp"]
+        self.device = device
         self.session = session
 
     async def request(self, method, path, data=None) -> Dict:
@@ -97,9 +103,9 @@ class LocalMeural:
         kwargs = {}
         if data:
             if method == "get":
-                data["query"] = data
+                kwargs["query"] = data
             else:
-                data["data"] = data
+                kwargs["data"] = data
         with async_timeout.timeout(10):
             resp = await self.session.request(
                 method,
@@ -111,40 +117,40 @@ class LocalMeural:
         return response["response"]
 
     async def send_key_right(self):
-        return await self.request("post", f"control_command/set_key/right/")
+        return await self.request("get", f"control_command/set_key/right/")
 
     async def send_key_left(self):
-        return await self.request("post", f"control_command/set_key/left/")
+        return await self.request("get", f"control_command/set_key/left/")
 
     async def send_key_up(self):
-        return await self.request("post", f"control_command/set_key/up/")
+        return await self.request("get", f"control_command/set_key/up/")
 
     async def send_key_down(self):
-        return await self.request("post", f"control_command/set_key/down/")
+        return await self.request("get", f"control_command/set_key/down/")
 
     async def send_key_suspend(self):
-        return await self.request("post", f"control_command/suspend/")
+        return await self.request("get", f"control_command/suspend")
 
     async def send_key_resume(self):
-        return await self.request("post", f"control_command/resume/")
+        return await self.request("get", f"control_command/resume")
 
     async def send_control_backlight(self, brightness):
-        return await self.request("post", f"control_command/set_backlight/{brightness}/")
+        return await self.request("get", f"control_command/set_backlight/{brightness}/")
 
     async def send_als_calibrate_off(self):
-        return await self.request("post", f"control_command/als_calibrate/off/")
+        return await self.request("get", f"control_command/als_calibrate/off/")
 
     async def send_set_portrait(self):
-        return await self.request("post", f"control_command/set_orientation/portrait/")
+        return await self.request("get", f"control_command/set_orientation/portrait")
 
     async def send_set_landscape(self):
-        return await self.request("post", f"control_command/set_orientation/landscape/")
+        return await self.request("get", f"control_command/set_orientation/landscape")
 
     async def send_change_gallery(self, gallery_id):
-        return await self.request("post", f"control_command/change_gallery/{gallery_id}")
+        return await self.request("get", f"control_command/change_gallery/{gallery_id}")
 
     async def send_change_item(self, item_id):
-        return await self.request("post", f"control_command/change_item/{item_id}")
+        return await self.request("get", f"control_command/change_item/{item_id}")
 
     async def send_get_backlight(self):
         return await self.request("get", f"get_backlight/")
@@ -161,8 +167,43 @@ class LocalMeural:
     async def send_get_wifi_connections(self):
         return await self.request("get", f"get_wifi_connections_json/")
 
+    async def send_get_galleries(self):
+        return await self.request("get", f"get_galleries_json/")
+
     async def send_get_gallery_status(self):
         return await self.request("get", f"get_gallery_status_json/")
 
     async def send_get_items_by_gallery(self, gallery_id):
         return await self.request("get", f"get_frame_items_by_gallery_json/{gallery_id}")
+
+    async def send_postcard(self, url, content_type):
+        # photo uploads are done doing a multipart/form-data form
+        # with key 'photo' and value being the image data
+
+        # FIXME: meural accepts image/jpeg but not image/jpg
+        if content_type == 'image/jpg':
+            content_type = 'image/jpeg'
+
+        _LOGGER.info('meural %s: sending postcard %s' % (
+            self.device['alias'], url))
+        with async_timeout.timeout(10):
+            response = await self.session.get(url)
+            image = await response.read()
+        _LOGGER.info('meural %s: downloaded %d bytes of image' % (
+            self.device['alias'], len(image)))
+
+        data = aiohttp.FormData()
+        data.add_field('photo', image, content_type=content_type)
+        response = await self.session.post(f"http://{self.ip}/remote/postcard",
+            data=data)
+        _LOGGER.info(response)
+        text = await response.text()
+
+        r = json.loads(text)
+        _LOGGER.info('meural %s: uploaded: %s: %s' % (
+                self.device['alias'], r['status'], r['response']))
+        if r['status'] != 'pass':
+            _LOGGER.warning('meural %s: could not upload: %s' % (
+                self.device['alias'], r['response']))
+
+        return response

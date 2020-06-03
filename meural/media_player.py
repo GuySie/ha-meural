@@ -65,6 +65,15 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     )
 
     platform.async_register_entity_service(
+        "preview_image",
+        {
+            vol.Required("content_url"): str,
+            vol.Required("content_type"): str,
+        },
+        "async_preview_image",
+    )
+
+    platform.async_register_entity_service(
         "reset_brightness",
         {},
         "async_reset_brightness",
@@ -140,12 +149,9 @@ class MeuralEntity(MediaPlayerEntity):
         )
 
     async def async_added_to_hass(self):
-        """Set up galleries. Include user galleries that may not be synced to the device galleries yet."""
-        device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
-        user_galleries = await self.meural.get_user_galleries()
-        _LOGGER.info("meural %s: %d device galleries, %d user galleries" % (self.name, len(device_galleries), len(user_galleries)))
-        [device_galleries.append(x) for x in user_galleries if x not in device_galleries]
-        self._galleries = device_galleries
+        """Set up galleries."""
+        self._galleries = await self.local_meural.send_get_galleries()
+        _LOGGER.info("meural %s: %d device galleries" % (self.name, len(self._galleries)))
 
         """Set up first item to display."""
         self._gallery_status = await self.local_meural.send_get_gallery_status()
@@ -160,6 +166,8 @@ class MeuralEntity(MediaPlayerEntity):
 
         """Only poll the Meural API if the device is not sleeping."""
         if self._sleep == False:
+            """Update galleries."""
+            self._galleries = await self.local_meural.send_get_galleries()
             """Save orientation and item we had before polling."""
             old_orientation = self._meural_device["orientation"]
             self._meural_device = await self.meural.get_device(self.meural_device_id)
@@ -171,11 +179,11 @@ class MeuralEntity(MediaPlayerEntity):
             new_orientation = self._meural_device["orientation"]
             if old_item != local_item:
                 """Only get item information if current item has changed since last poll."""
-#                _LOGGER.warning("Item changed. Getting item from Meural API for ID %s", local_item)
+                _LOGGER.info("Item changed. Getting item from Meural API for ID %s", local_item)
                 self._current_item = await self.meural.get_item(local_item)
             elif old_orientation != new_orientation:
                 """If orientationMatch is enabled, current item in gallery_status will not reflect item displayed after orientation changes. Force update of gallery_status by reloading gallery."""
-#                _LOGGER.warning("Orientation changed. Force update.")
+                _LOGGER.info("Orientation changed. Force update.")
                 await self.local_meural.send_change_gallery(self._gallery_status["current_gallery"])
 
     @property
@@ -376,10 +384,15 @@ class MeuralEntity(MediaPlayerEntity):
             currentitems = await self.local_meural.send_get_items_by_gallery(currentgallery_id)
             in_playlist = next((g["title"] for g in currentitems if g["id"] == media_id), None)
             if in_playlist is None:
-#                _LOGGER.warning("Item %s is not in current playlist, trying to play via remote API.", media_id)
+                _LOGGER.info("Item %s is not in current playlist, trying to play via remote API.", media_id)
                 await self.meural.device_load_item(self.meural_device_id, media_id)
             else:
-#                _LOGGER.warning("Item %s in current playlist %s, loading locally.", media_id, self._gallery_status["current_gallery_name"])
+                _LOGGER.info("Item %s in current playlist %s, loading locally.", media_id, self._gallery_status["current_gallery_name"])
                 await self.local_meural.send_change_item(media_id)
         else:
             _LOGGER.warning("Can't play media: %s is not an item ID", media_id)
+
+    async def async_preview_image(self, content_url, content_type):
+        if content_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
+            await self.local_meural.send_postcard(content_url, content_type)
+            return

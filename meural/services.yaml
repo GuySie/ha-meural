@@ -21,6 +21,18 @@ toggle_informationcard:
     entity_id:
       description: Entity ID of the Meural Canvas to toggle display on.
       example: "media_player.meural-123"
+preview_image:
+  description: Preview an image from an URL on Meural Canvas.
+  fields:
+    entity_id:
+      description: Entity ID of the Meural Canvas to update.
+      example: "media_player.meural-123"
+    content_url:
+      description: URL of the image to preview.
+      example: "https://home-assistant.io/images/cast/splash.png"
+    content_type:
+      description: The type of image to preview. Can be image/jpg or image/png.
+      example: "image/png"
 set_device_option:
   description: Set the configuration options of a Meural Canvas.
   fields:
@@ -50,10 +62,10 @@ set_device_option:
       example: "300"
     previewDuration:
       description: Length of time in seconds an image previews on your Canvas from the mobile app.
-      example: "60"
+      example: "120"
     overlayDuration:
       description: Length of time in seconds that overlays such as captions, settings, and playlists are displayed on your Canvas.
-      example: "120"
+      example: "60"
     gestureFeedback:
       description: Your Canvas will display a preview of images in the playlist when switching image manually.
       example: "false"
