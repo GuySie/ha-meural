@@ -242,7 +242,7 @@ class MeuralEntity(MediaPlayerEntity):
 
     @property
     def media_artist(self):
-        """Artist of current playing media, music track only. Replaced with artist name and the artwork year."""        
+        """Artist of current playing media, music track only. Replaced with artist name and the artwork year."""
         if self._current_item["artistName"] is not None:
             if self._current_item["year"] is not None:
                 return self._current_item["artistName"] + ", " + self._current_item["year"]
