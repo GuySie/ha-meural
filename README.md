@@ -1,4 +1,6 @@
 # HA-meural
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/custom-components/hacs)
+
 **Integration for Meural Canvas digital art frame in Home Assistant**  
 
 The Netgear Meural Canvas is a digital art frame with both a local interface and a cloud API.  
