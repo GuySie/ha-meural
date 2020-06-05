@@ -10,19 +10,18 @@ This integration leverages Meural's API and local interface to control the Meura
 ![Meural Canvas in Media Control card](https://raw.githubusercontent.com/GuySie/ha-meural/master/images/mediacontrolcard.png)
 
 ## Installation
-### HACS
+### HACS Install
 Add the following URL as a custom repository in HACS. You will be able to install the Meural integration from there.  
 https://github.com/GuySie/ha-meural/  
-
 Restart Home Assistant after installation.
 
 ### Manual Install
 Copy the `meural` folder inside `custom_components` to your Home Assistant's `custom_components` folder. Restart Home Assistant after copying.  
 
 ### Setup
-Go to *Configuration*, *Integrations*, click the + to add a new integration and find the Meural integration to set up. Log in with your Netgear account.  
+After restarting go to *Configuration*, *Integrations*, click the + to add a new integration and find the Meural integration to set up. Log in with your Netgear account.  
 
-The integration will detect all Canvas devices registered to your account. Each Canvas will become a Media Player entity and can be added to your Lovelace UI using any component that supports it, for example the default Media Control card. The entity will correspond to the name you have given the Canvas. By default your Canvas has a name consisting of a painter's name and 3 digits like `picasso-428`, which would result in the entity `media_player.picasso-428` being created.  
+The integration will detect all Canvas devices registered to your account. Each Canvas will become a Media Player entity and can be added to your Lovelace UI using any component that supports it, for example the default Media Control card. Your entity will correspond to the name the Canvas has been given. By default the Canvas has a name consisting of a painter's name and 3 digits like `picasso-428`, which would result in the entity `media_player.picasso-428` being created. You can give your Canvas a new name via Meural's app or website, or override this name in Home Assistant's entity settings.  
 
 ## Integration
 
@@ -37,6 +36,8 @@ The integration supports built-in media player service calls to pause, play, pla
 `media_player.turn_on`  
 `media_player.turn_off`  
 
+When calling service `media_player.play_media` please set parameter `media_content_id` to the item ID of a Meural artwork you wish to display. You will only be able to play items that you have permission for, e.g. artwork you have uploaded yourself or that your Meural membership gives you access to. If you wish to display an image that is not hosted on Meural's system, please see service `meural.preview_image` below.  
+
 ![Meural Canvas in entity settings](https://raw.githubusercontent.com/GuySie/ha-meural/master/images/entitysettings.png)
 
 Additional services built into this integration are:  
@@ -45,11 +46,11 @@ Additional services built into this integration are:
 `meural.reset_brightness`  
 `meural.toggle_informationcard`  
 `meural.preview_image`  
-These services are fully documented in `services.yaml`.
+These services are fully documented in `services.yaml`.  
 
-Service `meural.preview_image` temporarily displays an image on your Canvas. The amount of time these images will display can be set with `previewDuration` using service `meural.set_device_option`, in the Meural app or in the Meural web interface. This service is most suitable for use in automation when you wish to display images temporarily on the Canvas without uploading them as artwork to the Meural servers.
+Service `meural.preview_image` temporarily displays an image from a specified URL on your Canvas. The amount of time these images will display can be set with parameter `previewDuration` using service `meural.set_device_option`, in the Meural app or in the Meural web interface. This service is most suitable for use in automation when you wish to display images temporarily on the Canvas without uploading them as artwork to the Meural servers.  
 
-**Tip:** The official Meural settings for the sensitivity of brightness to ambient light sensor reading are limited to high (100), medium (20) or low (4). But you can make it any value of sensitivity, on a scale of 0 to 100, using `meural.set_device_option` and setting `alsSensitivity`. I find Meural's low value will still make the screen too bright, so I keep mine set to 2.
+**Tip:** The official Meural settings for the sensitivity of brightness to ambient light sensor reading are limited to high (100), medium (20) or low (4). But you can make it any value of sensitivity, on a scale of 0 to 100, using `meural.set_device_option` and setting parameter `alsSensitivity`. I find Meural's low value still makes the screen too bright for my location, so I keep `alsSensitivity` set to 2.  
 
 ### Google Assistant
 Meural currently only supports Alexa voice commands for the Canvas. However, if your Home Assistant supports Google Home / Google Assistant - either [configured manually](https://www.home-assistant.io/integrations/google_assistant/) or via [Nabu Casa](https://www.nabucasa.com/config/google_assistant/) - you can expose a Canvas entity and control it via Google. A media player in Home Assistant currently supports OnOff (turning the entity on or off) and Modes (changing the entity's input source) in Google. This means you can turn the Canvas on or off and select different playlists for the Canvas to display. Change the name of your Canvas to something you can pronounce - if you want to call your Canvas 'Meural', spell it 'Mural'.  

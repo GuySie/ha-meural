@@ -197,6 +197,19 @@ class MeuralEntity(MediaPlayerEntity):
         return self._meural_device["productKey"]
 
     @property
+    def device_info(self):
+        return {
+            "identifiers": {
+                # Serial numbers are unique identifiers within a specific domain
+                (DOMAIN, self.unique_id)
+            },
+            "name": self.name,
+            "manufacturer": "Meural",
+            "model": self._meural_device["frameModel"]["name"],
+            "sw_version": self._meural_device["version"],
+        }
+
+    @property
     def available(self):
         """Device available."""
         return self._meural_device["status"] != "offline"
