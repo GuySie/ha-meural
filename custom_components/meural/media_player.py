@@ -192,6 +192,11 @@ class MeuralEntity(MediaPlayerEntity):
         return self._meural_device["alias"]
 
     @property
+    def unique_id(self):
+        """Unique ID of the device."""
+        return self._meural_device["productKey"]
+
+    @property
     def available(self):
         """Device available."""
         return self._meural_device["status"] != "offline"
