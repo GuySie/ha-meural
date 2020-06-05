@@ -396,8 +396,10 @@ class MeuralEntity(MediaPlayerEntity):
         await self.meural.update_device(self.meural_device_id, {"imageShuffle": shuffle})
 
     async def async_play_media(self, media_type, media_id, **kwargs):
-        """Display an image. To use a local call this image has to be in the currently selected playlist, or unexpected behavior can occur. Call Meural API if this is not the case."""
-        if media_id.isdigit():
+        """Display an image. If sending a JPG or PNG uses preview functionality. If sending an item ID loads locally if image is in currently selected playlist, or via Meural API if this is not the case."""
+        if media_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
+            await self.local_meural.send_postcard(media_id, media_type)
+        elif media_id.isdigit():
             currentgallery_id = self._gallery_status["current_gallery"]
             currentitems = await self.local_meural.send_get_items_by_gallery(currentgallery_id)
             in_playlist = next((g["title"] for g in currentitems if g["id"] == media_id), None)
@@ -413,4 +415,3 @@ class MeuralEntity(MediaPlayerEntity):
     async def async_preview_image(self, content_url, content_type):
         if content_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
             await self.local_meural.send_postcard(content_url, content_type)
-            return
