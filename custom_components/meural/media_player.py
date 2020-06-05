@@ -204,7 +204,7 @@ class MeuralEntity(MediaPlayerEntity):
                 (DOMAIN, self.unique_id)
             },
             "name": self.name,
-            "manufacturer": "Meural",
+            "manufacturer": "NETGEAR",
             "model": self._meural_device["frameModel"]["name"],
             "sw_version": self._meural_device["version"],
         }
