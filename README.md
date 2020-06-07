@@ -1,9 +1,9 @@
 # HA-meural
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/custom-components/hacs) ![Release badge](https://img.shields.io/github/v/release/guysie/ha-meural?style=for-the-badge) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT) 
+[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg?style=for-the-badge)](https://github.com/custom-components/hacs) ![Release badge](https://img.shields.io/github/v/release/guysie/ha-meural?style=for-the-badge) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT) 
 
 **Integration for Meural Canvas digital art frame in Home Assistant**  
 
-The Netgear Meural Canvas is a digital art frame with both a local interface and a cloud API.  
+The NETGEAR Meural Canvas is a digital art frame with both a local interface and a cloud API.  
 Home Assistant is an open source home automation package that puts local control and privacy first.  
 This integration leverages Meural's API and local interface to control the Meural Canvas as a media player in Home Assistant.  
 
@@ -11,17 +11,19 @@ This integration leverages Meural's API and local interface to control the Meura
 
 ## Installation
 ### HACS Install
-Add the following URL as a custom repository in HACS. You will be able to install the Meural integration from there.  
-https://github.com/GuySie/ha-meural  
+Go to HACS (Community). Select *Integrations* and click the + to add a new integration repository. Search for `HA-meural` to find this repository, select it and install.  
 Restart Home Assistant after installation.
 
 ### Manual Install
-Copy the `meural` folder inside `custom_components` to your Home Assistant's `custom_components` folder. Restart Home Assistant after copying.  
+Copy the `meural` folder inside `custom_components` to your Home Assistant's `custom_components` folder.  
+Restart Home Assistant after copying.  
 
 ### Setup
-After restarting go to *Configuration*, *Integrations*, click the + to add a new integration and find the Meural integration to set up. Log in with your Netgear account.  
+After restarting go to *Configuration*, *Integrations*, click the + to add a new integration and find the Meural integration to set up.  
 
-The integration will detect all Canvas devices registered to your account. Each Canvas will become a Media Player entity and can be added to your Lovelace UI using any component that supports it, for example the Media Control card. By default, your entity will correspond to name of the Canvas. Out of the box your Canvas has a name consisting of a painter's name and 3 digits like `picasso-428`, which would result in the entity `media_player.picasso-428` being created. You can override the name and entity ID in Home Assistant's entity settings.  
+Log in with your NETGEAR account.  
+
+The integration will detect all Canvas devices registered to your account. Each Canvas will become a Media Player entity and can be added to your Lovelace UI using any component that supports it, for example the Media Control card. By default your entity's name will correspond to the name of the Canvas, which out-of-the-box consists of a painter's name and 3 digits like `picasso-428` - resulting in the entity `media_player.picasso-428` being created. You can override the name and entity ID in Home Assistant's entity settings.  
 
 ## Integration
 
@@ -38,7 +40,7 @@ The integration supports built-in media player service calls to pause, play, pla
 
 Service `media_player.play_media` can be used in 2 different ways:  
 1. Displays artwork hosted on the Meural servers on your Canvas.  
-Set parameter `media_content_id` to the item ID of the artwork you wish to display. You will only be able to play items that you have permission for, i.e. artwork you have uploaded yourself or that your Meural membership gives you access to. If the item is not in the currently selected playlist, the Canvas will switch to an *'All works'* playlist that contains all items you have played in this manner.  
+Set parameter `media_content_id` to the item ID of the artwork you wish to display. You will only be able to play items that you have permission for, i.e. artwork you have uploaded yourself or that your Meural membership gives you access to. If the item is not in the currently selected playlist, the Canvas will also switch to an *'All works'* playlist that contains all items you have played in this manner.  
 2. Temporarily displays an image from a specified URL on your Canvas.  
 Set parameter `media_content_type` to `image/jpg` or `image/png`, depending on your image type, and set `media_content_id` to the URL of the image you want to display. The amount of time these images will display can be set with parameter `previewDuration` using service `meural.set_device_option`. This is most suitable for use in automations when you wish to display images temporarily on the Canvas without uploading them as artwork to the Meural servers.  
 

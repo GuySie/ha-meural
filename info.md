@@ -13,7 +13,6 @@ HA-meural integrates your Netgear Meural Canvas digital art frame as a media pla
 - Supports all relevant media player services like previous/next artwork, change playlist, etc.  
 - Gets the artist's name and the artwork's name, year, and thumbnail for display in UI  
 - Looks great in the default Media Control card  
-- Send any image (even non-artwork) to the Canvas device to be previewed, perfect for use in automations  
+- Display non-artwork images on the Canvas device, perfect for use in automations  
 - Not an Alexa user? Use Home Assistant to expose your Canvas to Google Assistant!  
 - Supports both Canvas I and Canvas II devices  
-
