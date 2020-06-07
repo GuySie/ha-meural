@@ -12,7 +12,7 @@ This integration leverages Meural's API and local interface to control the Meura
 ## Installation
 ### HACS Install
 Add the following URL as a custom repository in HACS. You will be able to install the Meural integration from there.  
-https://github.com/GuySie/ha-meural/  
+https://github.com/GuySie/ha-meural  
 Restart Home Assistant after installation.
 
 ### Manual Install
