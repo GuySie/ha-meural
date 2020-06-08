@@ -3,8 +3,8 @@
 
 **Integration for Meural Canvas digital art frame in Home Assistant**  
 
-The NETGEAR Meural Canvas is a digital art frame with both a local interface and a cloud API.  
-Home Assistant is an open source home automation package that puts local control and privacy first.  
+The [NETGEAR Meural Canvas](https://meural.netgear.com/) is a digital art frame with both a local interface and a cloud API.  
+[Home Assistant](https://www.home-assistant.io/) is an open source home automation package that puts local control and privacy first.  
 This integration leverages Meural's API and local interface to control the Meural Canvas as a media player in Home Assistant.  
 
 ![Meural Canvas in Media Control card](https://raw.githubusercontent.com/GuySie/ha-meural/master/images/mediacontrolcard.png)
@@ -84,7 +84,7 @@ Which would work by saying:
 ## Meural Canvas device
 
 ### Meural API
-Meural has a REST API that their mobile app and web-interface run on. Unofficial documentation on this API can be found here:
+Meural has a REST API that their [mobile apps](https://www.netgear.com/support/product/mc327.aspx#download) and [web-interface](https://my.meural.netgear.com/) run on. Unofficial documentation on this API can be found here:
 https://documenter.getpostman.com/view/1657302/RVnWjKUL?version=latest
 
 ### Local Web Server
