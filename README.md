@@ -68,8 +68,8 @@ For example, you can say:
 *"Hey Google, play (canvas name)."*  
 *"Hey Google, turn off (canvas name)."*  
 
-For other currently missing functionality, such as turning shuffle on or off, you can create scripts in Home Assistant that can be exposed to Google that trigger the corresponding calls. These scripts are called by saying *"Hey Google, activate (script name."*  
-E.g. write a script using the built-in editor such as:
+For other currently missing functionality, such as turning shuffle on or off, you can create scripts in Home Assistant that can be exposed to Google to trigger the corresponding services. These scripts are called by saying *"Hey Google, activate (script name)."*  
+Then write a script using the built-in editor such as:
 
 ```
 'Enable shuffle on Meural Canvas':
@@ -83,6 +83,9 @@ E.g. write a script using the built-in editor such as:
 
 Which would work by saying:  
 *"Hey Google, activate enable art shuffle."*  
+
+**Tip:** A lot of problems between Home Assistant and Google Assistant stem from incorrectly synced entities between the two platforms. If you're having issues, try saying the following:  
+*"Hey Google, sync devices."*
 
 ## Meural Canvas device
 
