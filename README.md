@@ -58,31 +58,33 @@ These services are fully documented in `services.yaml`.
 
 ### Google Assistant
 Meural currently only supports Alexa voice commands for the Canvas. However, if your Home Assistant supports Google Home / Google Assistant - either [configured manually](https://www.home-assistant.io/integrations/google_assistant/) or via [Nabu Casa](https://www.nabucasa.com/config/google_assistant/) - you can expose a Canvas entity and control it via Google. 
-Starting from [Home Assistant release 111](https://www.home-assistant.io/blog/2020/06/10/release-111/) a media player supports OnOff, Modes, TransportControl and MediaState in Google. This means you can turn the Canvas on or off, select different playlists for the Canvas to display, and perform basic media controls like next/previous image or pause/play. To make it easier to command your Canvas change the name to something you can pronounce and Google can recognize - e.g. if you want to call your Canvas 'Meural', spell it 'Mural'.  
+Starting from [Home Assistant release 111](https://www.home-assistant.io/blog/2020/06/10/release-111/) a media player supports OnOff, Modes, TransportControl and MediaState in Google. This means you can turn the Canvas on or off, select different playlists for the Canvas to display, and perform basic controls like next/previous image, pause/play or enabling shuffle - oddly enough, Google does not support disabling shuffle.  
+To make it easier to command your Canvas change the name to something you can pronounce and Google can recognize - e.g. if you want to call your Canvas 'Meural', spell it 'Mural'.  
 
 For example, you can say:  
 *"Hey Google, turn on (canvas name)."*  
 *"Hey Google, pause (canvas name)."*  
 *"Hey Google, set input source to (playlist name) on (canvas name)."*  
+*"Hey Google, set (canvas name) to shuffle."*  
 *"Hey Google, next image on (canvas name)."*  
 *"Hey Google, play (canvas name)."*  
 *"Hey Google, turn off (canvas name)."*  
 
-For other currently missing functionality, such as turning shuffle on or off, you can create scripts in Home Assistant that can be exposed to Google to trigger the corresponding services. These scripts are called by saying *"Hey Google, activate (script name)."*  
+For other currently missing functionality, such as turning shuffle off, you can create scripts in Home Assistant that can be exposed to Google to trigger the corresponding services. These scripts are called by saying *"Hey Google, activate (script name)."*  
 Then write a script using the built-in editor such as:
 
 ```
-'Enable shuffle on Meural Canvas':
-  alias: Enable art shuffle
+'Disable shuffle on Meural Canvas':
+  alias: Disable art shuffle
   sequence:
   - data:
-      shuffle: true
+      shuffle: false
     entity_id: media_player.meural-123
     service: media_player.shuffle_set
 ```
 
 Which would work by saying:  
-*"Hey Google, activate enable art shuffle."*  
+*"Hey Google, activate disable art shuffle."*  
 
 **Tip:** A lot of problems between Home Assistant and Google Assistant stem from incorrectly synced entities between the two platforms. If you're having issues, try saying the following:  
 *"Hey Google, sync devices."*
