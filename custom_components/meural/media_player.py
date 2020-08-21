@@ -425,13 +425,16 @@ class MeuralEntity(MediaPlayerEntity):
             currentitems = await self.local_meural.send_get_items_by_gallery(currentgallery_id)
             in_playlist = next((g["title"] for g in currentitems if g["id"] == media_id), None)
             if in_playlist is None:
-                _LOGGER.info("Meural %s: Item %s is not in current playlist, trying to play via remote API", self.name, media_id)
-                await self.meural.device_load_item(self.meural_device_id, media_id)
+                _LOGGER.info("Meural %s: Item %s is not in current playlist, trying to display via remote API", self.name, media_id)
+                try:
+                    await self.meural.device_load_item(self.meural_device_id, media_id)
+                except:
+                    _LOGGER.error("Meural %s: Can't display item %s, remote API returned error", self.name, media_id)
             else:
                 _LOGGER.info("Meural %s: Item %s in current playlist %s, loading locally", self.name, media_id, self._gallery_status["current_gallery_name"])
                 await self.local_meural.send_change_item(media_id)
         else:
-            _LOGGER.warning("Meural %s: Can't play media: %s is not an item ID", self.name, media_id)
+            _LOGGER.error("Meural %s: Can't display media: %s is not an item ID", self.name, media_id)
 
     async def async_preview_image(self, content_url, content_type):
         if content_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
