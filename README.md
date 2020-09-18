@@ -57,29 +57,37 @@ These services are fully documented in `services.yaml`.
 **Tip:** The official Meural settings for the sensitivity of brightness to ambient light sensor reading are limited to high (100), medium (20) or low (4). But you can make it any value of sensitivity, on a scale of 0 to 100, using `meural.set_device_option` and setting parameter `alsSensitivity`. I find Meural's low value still makes the screen too bright for my room, so I keep `alsSensitivity` set to 2.  
 
 ### Google Assistant
-Meural currently only supports Alexa voice commands for the Canvas. However, if your Home Assistant supports Google Home / Google Assistant - either [configured manually](https://www.home-assistant.io/integrations/google_assistant/) or via [Nabu Casa](https://www.nabucasa.com/config/google_assistant/) - you can expose a Canvas entity and control it via Google. A media player in Home Assistant currently supports OnOff (turning the entity on or off) and Modes (changing the entity's input source) in Google. This means you can turn the Canvas on or off and select different playlists for the Canvas to display. Change the name of your Canvas to something you can pronounce - if you want to call your Canvas 'Meural', spell it 'Mural'.  
+Meural currently only supports Alexa voice commands for the Canvas. However, if your Home Assistant supports Google Home / Google Assistant - either [configured manually](https://www.home-assistant.io/integrations/google_assistant/) or via [Nabu Casa](https://www.nabucasa.com/config/google_assistant/) - you can expose a Canvas entity and control it via Google. 
+Starting from [Home Assistant release 111](https://www.home-assistant.io/blog/2020/06/10/release-111/) a media player supports OnOff, Modes, TransportControl and MediaState in Google. This means you can turn the Canvas on or off, select different playlists for the Canvas to display, and perform basic controls like next/previous image, pause/play or enabling shuffle - oddly enough, Google does not support disabling shuffle.  
+To make it easier to command your Canvas change the name to something you can pronounce and Google can recognize - e.g. if you want to call your Canvas 'Meural', spell it 'Mural'.  
 
-For example, say:  
+For example, you can say:  
 *"Hey Google, turn on (canvas name)."*  
+*"Hey Google, pause (canvas name)."*  
 *"Hey Google, set input source to (playlist name) on (canvas name)."*  
+*"Hey Google, set (canvas name) to shuffle."*  
+*"Hey Google, next image on (canvas name)."*  
+*"Hey Google, play (canvas name)."*  
 *"Hey Google, turn off (canvas name)."*  
 
-An example video can be found here:  
-https://twitter.com/GuySie/status/1265349696119283716
-
-For other currently missing functionality, such as next/previous track, you can create scripts in Home Assistant that can be exposed to Google that trigger the corresponding calls. E.g. write a script using the built-in editor such as:
+For other currently missing functionality, such as turning shuffle off, you can create scripts in Home Assistant that can be exposed to Google to trigger the corresponding services. These scripts are called by saying *"Hey Google, activate (script name)."*  
+Then write a script using the built-in editor such as:
 
 ```
-'Go to next image on Meural Canvas':
-  alias: next art
+'Disable shuffle on Meural Canvas':
+  alias: Disable art shuffle
   sequence:
-  - data: {}
+  - data:
+      shuffle: false
     entity_id: media_player.meural-123
-    service: media_player.media_next_track
+    service: media_player.shuffle_set
 ```
 
 Which would work by saying:  
-*"Hey Google, activate next art."*  
+*"Hey Google, activate disable art shuffle."*  
+
+**Tip:** A lot of problems between Home Assistant and Google Assistant stem from incorrectly synced entities between the two platforms. If you're having issues, try saying the following:  
+*"Hey Google, sync devices."*
 
 ## Meural Canvas device
 
