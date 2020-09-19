@@ -184,12 +184,12 @@ class LocalMeural:
         if content_type == 'image/jpg':
             content_type = 'image/jpeg'
 
-        _LOGGER.info('meural %s: sending postcard %s' % (
+        _LOGGER.info('Meural device %s: Sending postcard %s' % (
             self.device['alias'], url))
         with async_timeout.timeout(10):
             response = await self.session.get(url)
             image = await response.read()
-        _LOGGER.info('meural %s: downloaded %d bytes of image' % (
+        _LOGGER.info('Meural device %s: Downloaded %d bytes of image' % (
             self.device['alias'], len(image)))
 
         data = aiohttp.FormData()
@@ -200,10 +200,10 @@ class LocalMeural:
         text = await response.text()
 
         r = json.loads(text)
-        _LOGGER.info('meural %s: uploaded: %s: %s' % (
+        _LOGGER.info('Meural device %s: Uploaded: %s: %s' % (
                 self.device['alias'], r['status'], r['response']))
         if r['status'] != 'pass':
-            _LOGGER.warning('meural %s: could not upload: %s' % (
+            _LOGGER.error('Meural device %s: Could not upload: %s' % (
                 self.device['alias'], r['response']))
 
         return response

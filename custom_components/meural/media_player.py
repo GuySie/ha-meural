@@ -6,6 +6,8 @@ try:
 except ImportError:
     from homeassistant.components.media_player import MediaPlayerDevice as MediaPlayerEntity
 
+from homeassistant.components.media_player import BrowseError, BrowseMedia
+
 from homeassistant.const import (
     STATE_PLAYING,
     STATE_PAUSED,
@@ -13,7 +15,10 @@ from homeassistant.const import (
 )
 
 from homeassistant.components.media_player.const import (
+    MEDIA_CLASS_DIRECTORY,
     MEDIA_TYPE_MUSIC,
+    MEDIA_TYPE_PLAYLIST,
+    SUPPORT_BROWSE_MEDIA,
     SUPPORT_SELECT_SOURCE,
     SUPPORT_NEXT_TRACK,
     SUPPORT_PAUSE,
@@ -33,7 +38,8 @@ from .pymeural import LocalMeural
 _LOGGER = logging.getLogger(__name__)
 
 MEURAL_SUPPORT = (
-    SUPPORT_SELECT_SOURCE
+    SUPPORT_BROWSE_MEDIA
+    | SUPPORT_SELECT_SOURCE
     | SUPPORT_NEXT_TRACK
     | SUPPORT_PAUSE
     | SUPPORT_PLAY
@@ -418,8 +424,11 @@ class MeuralEntity(MediaPlayerEntity):
 
     async def async_play_media(self, media_type, media_id, **kwargs):
         """Display an image. If sending a JPG or PNG uses preview functionality. If sending an item ID loads locally if image is in currently selected playlist, or via Meural API if this is not the case."""
-        if media_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
-            _LOGGER.info("Meural device %s: Previewing image from %s", self.name, content_url)
+        if media_type in ['playlist']:
+            _LOGGER.info("Meural device %s: Media type is %s, playing playlist %s", self.name, media_type, media_id)
+            await self.local_meural.send_change_gallery(media_id)
+        elif media_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
+            _LOGGER.info("Meural device %s: Media type is %s, previewing image from %s", self.name, media_type, media_id)
             await self.local_meural.send_postcard(media_id, media_type)
         elif media_id.isdigit():
             currentgallery_id = self._gallery_status["current_gallery"]
@@ -430,14 +439,41 @@ class MeuralEntity(MediaPlayerEntity):
                 try:
                     await self.meural.device_load_item(self.meural_device_id, media_id)
                 except:
-                    _LOGGER.error("Meural device %s: Error while trying to display item %s through remote API", self.name, media_id)
+                    _LOGGER.error("Meural device %s: Error while trying to display %s item %s through remote API", self.name, media_type, media_id)
             else:
                 _LOGGER.info("Meural device %s: Item %s is in current playlist %s, trying to display locally", self.name, media_id, self._gallery_status["current_gallery_name"])
                 await self.local_meural.send_change_item(media_id)
         else:
-            _LOGGER.error("Meural device %s: Can't display media: %s is not an item ID", self.name, media_id)
+            _LOGGER.error("Meural device %s: Can't display %s media: %s is not an item ID", self.name, media_type, media_id)
 
     async def async_preview_image(self, content_url, content_type):
         if content_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
             _LOGGER.info("Meural device %s: Previewing image from %s", self.name, content_url)
             await self.local_meural.send_postcard(content_url, content_type)
+
+    async def async_browse_media(self, media_content_type=None, media_content_id=None):
+        """Implement the websocket media browsing helper."""
+        if media_content_id not in (None, ""):
+            raise BrowseError(
+                f"Media not found: {media_content_type} / {media_content_id}"
+            )
+
+        return BrowseMedia(
+            title="Playlists",
+            media_class=MEDIA_CLASS_DIRECTORY,
+            media_content_id="",
+            media_content_type=MEDIA_TYPE_PLAYLIST,
+            can_play=False,
+            can_expand=True,
+            children=[
+                BrowseMedia(
+                    title=g["name"],
+                    media_class=MEDIA_TYPE_PLAYLIST,
+                    media_content_id=g["id"],
+                    media_content_type=MEDIA_TYPE_PLAYLIST,
+                    can_play=True,
+                    can_expand=False,
+                )
+                for g in self._galleries
+            ],
+        )
