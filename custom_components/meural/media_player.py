@@ -133,6 +133,7 @@ class MeuralEntity(MediaPlayerEntity):
         self.meural = meural
         self._meural_device = device
         self._galleries = []
+        self._remote_galleries = []
         self._gallery_status = []
         self._current_item = {}
 
@@ -155,9 +156,16 @@ class MeuralEntity(MediaPlayerEntity):
         )
 
     async def async_added_to_hass(self):
-        """Set up galleries."""
+        """Set up local galleries."""
         self._galleries = await self.local_meural.send_get_galleries()
         _LOGGER.info("Meural device %s: Has %d local playlists" % (self.name, len(self._galleries)))
+
+        """Set up remote galleries."""
+        device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
+        user_galleries = await self.meural.get_user_galleries()
+        [device_galleries.append(x) for x in user_galleries if x not in device_galleries]
+        self._remote_galleries = device_galleries  
+        _LOGGER.info("Meural device %s: Has %d remote playlists" % (self.name, len(self._remote_galleries)))
             
         """Set up first item to display."""
         self._gallery_status = await self.local_meural.send_get_gallery_status()
@@ -473,7 +481,8 @@ class MeuralEntity(MediaPlayerEntity):
                     media_content_type=MEDIA_TYPE_PLAYLIST,
                     can_play=True,
                     can_expand=False,
+                    thumbnail=g["cover"],
                 )
-                for g in self._galleries
+                for g in self._remote_galleries
             ],
         )
