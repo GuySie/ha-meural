@@ -43,6 +43,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 token = await validate_input(self.hass, user_input)
 
+                await self.async_set_unique_id(user_input["email"], raise_on_progress=False)
                 return self.async_create_entry(
                     title=user_input["email"],
                     data={"email": user_input["email"], "token": token},
