@@ -452,11 +452,11 @@ class MeuralEntity(MediaPlayerEntity):
                 _LOGGER.info("Meural device %s: Item %s is in current playlist %s, trying to display locally", self.name, media_id, self._gallery_status["current_gallery_name"])
                 await self.local_meural.send_change_item(media_id)
         else:
-            _LOGGER.error("Meural device %s: Can't display %s media: %s is not an item ID", self.name, media_type, media_id)
+            _LOGGER.error("Meural device %s: Does not support displaying this %s media with ID: %s", self.name, media_type, media_id)
 
     async def async_preview_image(self, content_url, content_type):
         if content_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
-            _LOGGER.info("Meural device %s: Previewing image from %s", self.name, content_url)
+            _LOGGER.info("Meural device %s: Media type is %s, previewing image from %s", self.name, content_type, content_url)
             await self.local_meural.send_postcard(content_url, content_type)
 
     async def async_browse_media(self, media_content_type=None, media_content_id=None):
@@ -481,8 +481,8 @@ class MeuralEntity(MediaPlayerEntity):
                     media_content_type=MEDIA_TYPE_PLAYLIST,
                     can_play=True,
                     can_expand=False,
-                    thumbnail=g["cover"],
+                    thumbnail=next((h["cover"] for h in self._remote_galleries if h["id"] == int(g["id"])), None),
                 )
-                for g in self._remote_galleries
+                for g in self._galleries
             ],
         )
