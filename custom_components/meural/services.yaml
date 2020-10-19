@@ -21,6 +21,12 @@ toggle_informationcard:
     entity_id:
       description: Entity ID of the Meural Canvas to toggle display on.
       example: "media_player.meural-123"
+synchronize:
+  description: Fully synchronize your Canvas settings with the Meural server. 
+  fields:
+    entity_id:
+      description: Entity ID of the Meural Canvas to synchronize.
+      example: "media_player.meural-123"
 preview_image:
   description: Preview an image from an URL on Meural Canvas.
   fields:

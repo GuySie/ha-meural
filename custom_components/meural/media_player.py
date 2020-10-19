@@ -126,6 +126,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         "async_set_device_option",
     )
 
+    platform.async_register_entity_service(
+        "synchronize",
+        {},
+        "async_synchronize",
+    )
+
 class MeuralEntity(MediaPlayerEntity):
     """Representation of a Meural entity."""
 
@@ -162,9 +168,11 @@ class MeuralEntity(MediaPlayerEntity):
 
         """Set up remote galleries."""
         device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
+        _LOGGER.info("Meural device %s: Getting %s device galleries from server", self.name, len(device_galleries))
         user_galleries = await self.meural.get_user_galleries()
+        _LOGGER.info("Meural device %s: Getting %s user galleries from server", self.name, len(user_galleries))
         [device_galleries.append(x) for x in user_galleries if x not in device_galleries]
-        self._remote_galleries = device_galleries  
+        self._remote_galleries = device_galleries
         _LOGGER.info("Meural device %s: Has %d remote playlists" % (self.name, len(self._remote_galleries)))
             
         """Set up first item to display."""
@@ -391,6 +399,11 @@ class MeuralEntity(MediaPlayerEntity):
         """Toggle display of the information card."""
         await self.local_meural.send_key_up()
 
+    async def async_synchronize(self):
+        """Synchronize device with Meural server."""
+        _LOGGER.info("Meural device %s: Synchronizing with Meural server", self.name)
+        await self.meural.sync_device(self.meural_device_id)
+
     async def async_select_source(self, source):
         """Select playlist to display."""
         source = next((g["id"] for g in self._galleries if g["name"] == source), None)
@@ -417,13 +430,16 @@ class MeuralEntity(MediaPlayerEntity):
     async def async_media_pause(self):
         """Set duration to 0 (pause), store current duration in pause_duration."""
         self._pause_duration = self._meural_device["imageDuration"]
+        _LOGGER.info("Meural device %s: Setting image duration on server to 0", self.name)
         await self.meural.update_device(self.meural_device_id, {"imageDuration": 0})
 
     async def async_media_play(self):
         """Restore duration from pause_duration (play). Use duration 300 if no pause_duration was stored."""
         if self._pause_duration != 0:
+            _LOGGER.info("Meural device %s: Setting image duration on server to %s", self.name, self._pause_duration)
             await self.meural.update_device(self.meural_device_id, {"imageDuration": self._pause_duration})
         else:
+            _LOGGER.info("Meural device %s: Setting image duration on server to 300", self.name)            
             await self.meural.update_device(self.meural_device_id, {"imageDuration": 300})
 
     async def async_set_shuffle(self, shuffle):
@@ -461,6 +477,15 @@ class MeuralEntity(MediaPlayerEntity):
 
     async def async_browse_media(self, media_content_type=None, media_content_id=None):
         """Implement the websocket media browsing helper."""
+
+        device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
+        _LOGGER.info("Meural device %s: Getting %s device galleries from server", self.name, len(device_galleries))
+        user_galleries = await self.meural.get_user_galleries()
+        _LOGGER.info("Meural device %s: Getting %s user galleries from server", self.name, len(user_galleries))
+        [device_galleries.append(x) for x in user_galleries if x not in device_galleries]
+        self._remote_galleries = device_galleries
+        _LOGGER.info("Meural device %s: Has %d remote playlists" % (self.name, len(self._remote_galleries)))
+
         if media_content_id not in (None, ""):
             raise BrowseError(
                 f"Media not found: {media_content_type} / {media_content_id}"
