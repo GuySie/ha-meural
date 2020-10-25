@@ -27,7 +27,7 @@ The integration will detect all Canvas devices registered to your account. Each 
 
 ## Integration
 
-The integration supports built-in media player service calls to pause, play, play a specific item, go to the next/previous track (artwork), select a source (art playlist), set shuffle mode, and turn on or turn off:  
+The integration supports built-in media player service calls to pause, play, play a specific item or playlist, go to the next/previous track (artwork), select a source (art playlist/album), set shuffle mode, and turn on or turn off. It also supports the built-in Media Browser functionality.  
 `media_player.media_pause`  
 `media_player.media_play`  
 `media_player.play_media`  
@@ -38,11 +38,13 @@ The integration supports built-in media player service calls to pause, play, pla
 `media_player.turn_on`  
 `media_player.turn_off`  
 
-Service `media_player.play_media` can be used in 2 different ways:  
-1. Displays artwork hosted on the Meural servers on your Canvas.  
-Set parameter `media_content_id` to the item ID of the artwork you wish to display. You will only be able to play items that you have permission for, i.e. artwork you have uploaded yourself or that your Meural membership gives you access to. If the item is not in the currently selected playlist, the Canvas will also switch to an *'All works'* playlist that contains all items you have played in this manner.  
-2. Temporarily displays an image from a specified URL on your Canvas.  
+Service `media_player.play_media` can be used in 3 different ways:  
+1. Temporarily displays an image from a specified URL on your Canvas.  
 Set parameter `media_content_type` to `image/jpg` or `image/png`, depending on your image type, and set `media_content_id` to the URL of the image you want to display. The amount of time these images will display can be set with parameter `previewDuration` using service `meural.set_device_option`. This is most suitable for use in automations when you wish to display images temporarily on the Canvas without uploading them as artwork to the Meural servers.  
+2. Displays artwork hosted on the Meural servers on your Canvas.  
+Set parameter `media_content_type` to `item` and set parameter `media_content_id` to the item ID of the artwork you wish to display. You will only be able to play items that you have permission for, i.e. artwork you have uploaded yourself or that your Meural membership gives you access to. If the item is not in the currently selected playlist, the Canvas will also switch to an *'All works'* playlist that contains all items you have played in this manner.  
+3. Displays a playlist/album that is already uploaded to your Canvas.  
+Set parameter `media_content_type` to `playlist` and parameter `media_content_id` to the gallery ID of the playlist or album that you wish to display. You will not be able to display a playlist or album that has not yet been sent to the Canvas. Please note that albums are assigned a 'fake' gallery ID on your Canvas to represent them that is not the same as their album ID on the Meural servers.  
 
 ![Meural Canvas in entity settings](https://raw.githubusercontent.com/GuySie/ha-meural/master/images/entitysettings.png)
 
@@ -51,6 +53,7 @@ Additional services built into this integration are:
 `meural.set_brightness`  
 `meural.reset_brightness`  
 `meural.toggle_informationcard`  
+`meural.synchronize`  
 `meural.preview_image`  
 These services are fully documented in `services.yaml`.  
 
@@ -64,7 +67,7 @@ To make it easier to command your Canvas change the name to something you can pr
 For example, you can say:  
 *"Hey Google, turn on (canvas name)."*  
 *"Hey Google, pause (canvas name)."*  
-*"Hey Google, set input source to (playlist name) on (canvas name)."*  
+*"Hey Google, set input to (playlist name) on (canvas name)."*  
 *"Hey Google, set (canvas name) to shuffle."*  
 *"Hey Google, next image on (canvas name)."*  
 *"Hey Google, play (canvas name)."*  
@@ -131,4 +134,4 @@ The available calls in this javascript are:
 `/remote/postcard/`  
 
 ## Thanks
-The first version of this integration was built by [@balloob](https://github.com/balloob) - many, many thanks to him. Blame [@guysie](https://github.com/guysie) for the code added afterwards. Thanks to [@thomasvs](https://github.com/thomasvs) for contributing!
+The first version of this integration was built by [@balloob](https://github.com/balloob) - many, many thanks to him. Blame [@guysie](https://github.com/guysie) for the code added afterwards. Thanks to [@thomasvs](https://github.com/thomasvs) for contributing the code to preview images!

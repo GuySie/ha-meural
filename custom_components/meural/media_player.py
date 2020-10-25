@@ -145,6 +145,7 @@ class MeuralEntity(MediaPlayerEntity):
 
         self._pause_duration = 0
         self._sleep = True
+        self._abort = False
 
     @property
     def meural_device_id(self):
@@ -163,24 +164,29 @@ class MeuralEntity(MediaPlayerEntity):
 
     async def async_added_to_hass(self):
         """Set up local galleries."""
-        self._galleries = await self.local_meural.send_get_galleries()
-        _LOGGER.info("Meural device %s: Has %d local playlists" % (self.name, len(self._galleries)))
+        try:
+            self._galleries = await self.local_meural.send_get_galleries()
+            _LOGGER.info("Meural device %s: Has %d local galleries on local device" % (self.name, len(self._galleries)))
+        except:
+            _LOGGER.error("Meural device %s: Error while contacting local device, aborting setup", self.name)
+            self._abort = True
+            return
 
         """Set up remote galleries."""
         device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
-        _LOGGER.info("Meural device %s: Getting %s device galleries from server", self.name, len(device_galleries))
+        _LOGGER.info("Meural device %s: Getting %d device galleries from Meural server", self.name, len(device_galleries))
         user_galleries = await self.meural.get_user_galleries()
-        _LOGGER.info("Meural device %s: Getting %s user galleries from server", self.name, len(user_galleries))
+        _LOGGER.info("Meural device %s: Getting %d user galleries from Meural server", self.name, len(user_galleries))
         [device_galleries.append(x) for x in user_galleries if x not in device_galleries]
         self._remote_galleries = device_galleries
-        _LOGGER.info("Meural device %s: Has %d remote playlists" % (self.name, len(self._remote_galleries)))
+        _LOGGER.info("Meural device %s: Has %d unique remote galleries on Meural server" % (self.name, len(self._remote_galleries)))
             
         """Set up first item to display."""
         self._gallery_status = await self.local_meural.send_get_gallery_status()
         try:
             self._current_item = await self.meural.get_item(int(self._gallery_status["current_item"]))
         except:
-            _LOGGER.warning("Meural device %s: Error while getting information of currently displayed item from remote API, resetting item information",  self.name)
+            _LOGGER.warning("Meural device %s: Error while getting information of currently displayed item from Meural server, resetting item information",  self.name)
             self._current_item = {}
 
         """Set up default image duration."""
@@ -189,7 +195,15 @@ class MeuralEntity(MediaPlayerEntity):
         _LOGGER.info("Meural device %s: Setup has completed",  self.name)
 
     async def async_update(self):
-        self._sleep = await self.local_meural.send_get_sleep()
+        if self._abort == True:
+            _LOGGER.debug("Meural device %s: Setup was aborted, device will not be updated", self.name)
+            return
+
+        try:
+            self._sleep = await self.local_meural.send_get_sleep()
+        except:
+            _LOGGER.warning("Meural device %s: Error while contacting local device", self.name)
+            self._sleep = True
 
         """Only poll the Meural API if the device is not sleeping."""
         if self._sleep == False:
@@ -206,15 +220,15 @@ class MeuralEntity(MediaPlayerEntity):
             new_orientation = self._meural_device["orientation"]
             if old_item != local_item:
                 """Only get item information if current item has changed since last poll."""
-                _LOGGER.info("Meural device %s: Item changed. Getting information from remote API for item %s", self.name, local_item)
+                _LOGGER.info("Meural device %s: Item changed. Getting information from Meural server for item %s", self.name, local_item)
                 try:
                     self._current_item = await self.meural.get_item(local_item)
                 except:
-                    _LOGGER.warning("Meural device %s: Error while getting information of currently displayed item %s from remote API, resetting item information", self.name, local_item)
+                    _LOGGER.warning("Meural device %s: Error while getting information of currently displayed item %s from Meural server, resetting item information", self.name, local_item)
                     self._current_item = {}
             elif old_orientation != new_orientation:
                 """If orientationMatch is enabled, current item in gallery_status will not reflect item displayed after orientation changes. Force update of gallery_status by reloading gallery."""
-                _LOGGER.info("Meural device %s: Orientation has changed, reloading playlist to update currently displayed item", self.name)
+                _LOGGER.info("Meural device %s: Orientation has changed, reloading gallery to force update of currently displayed item", self.name)
                 await self.local_meural.send_change_gallery(self._gallery_status["current_gallery"])
 
     @property
@@ -430,16 +444,16 @@ class MeuralEntity(MediaPlayerEntity):
     async def async_media_pause(self):
         """Set duration to 0 (pause), store current duration in pause_duration."""
         self._pause_duration = self._meural_device["imageDuration"]
-        _LOGGER.info("Meural device %s: Setting image duration on server to 0", self.name)
+        _LOGGER.info("Meural device %s: Setting image duration on Meural server to 0", self.name)
         await self.meural.update_device(self.meural_device_id, {"imageDuration": 0})
 
     async def async_media_play(self):
         """Restore duration from pause_duration (play). Use duration 300 if no pause_duration was stored."""
         if self._pause_duration != 0:
-            _LOGGER.info("Meural device %s: Setting image duration on server to %s", self.name, self._pause_duration)
+            _LOGGER.info("Meural device %s: Setting image duration on Meural server to %s", self.name, self._pause_duration)
             await self.meural.update_device(self.meural_device_id, {"imageDuration": self._pause_duration})
         else:
-            _LOGGER.info("Meural device %s: Setting image duration on server to 300", self.name)            
+            _LOGGER.info("Meural device %s: Setting image duration on Meural server to 300", self.name)            
             await self.meural.update_device(self.meural_device_id, {"imageDuration": 300})
 
     async def async_set_shuffle(self, shuffle):
@@ -449,26 +463,29 @@ class MeuralEntity(MediaPlayerEntity):
     async def async_play_media(self, media_type, media_id, **kwargs):
         """Display an image. If sending a JPG or PNG uses preview functionality. If sending an item ID loads locally if image is in currently selected playlist, or via Meural API if this is not the case."""
         if media_type in ['playlist']:
-            _LOGGER.info("Meural device %s: Media type is %s, playing playlist %s", self.name, media_type, media_id)
+            _LOGGER.info("Meural device %s: Media type is %s, playing gallery %s", self.name, media_type, media_id)
             await self.local_meural.send_change_gallery(media_id)
         elif media_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
             _LOGGER.info("Meural device %s: Media type is %s, previewing image from %s", self.name, media_type, media_id)
             await self.local_meural.send_postcard(media_id, media_type)
-        elif media_id.isdigit():
-            currentgallery_id = self._gallery_status["current_gallery"]
-            currentitems = await self.local_meural.send_get_items_by_gallery(currentgallery_id)
-            in_playlist = next((g["title"] for g in currentitems if g["id"] == media_id), None)
-            if in_playlist is None:
-                _LOGGER.info("Meural device %s: Item %s is not in current playlist, trying to display via remote API", self.name, media_id)
-                try:
-                    await self.meural.device_load_item(self.meural_device_id, media_id)
-                except:
-                    _LOGGER.error("Meural device %s: Error while trying to display %s item %s through remote API", self.name, media_type, media_id)
+        elif media_type in ['item']:
+            if media_id.isdigit():
+                currentgallery_id = self._gallery_status["current_gallery"]
+                currentitems = await self.local_meural.send_get_items_by_gallery(currentgallery_id)
+                in_playlist = next((g["title"] for g in currentitems if g["id"] == media_id), None)
+                if in_playlist is None:
+                    _LOGGER.info("Meural device %s: Item %s is not in current gallery, trying to display via Meural server", self.name, media_id)
+                    try:
+                        await self.meural.device_load_item(self.meural_device_id, media_id)
+                    except:
+                        _LOGGER.error("Meural device %s: Error while trying to display %s item %s via Meural server", self.name, media_type, media_id)
+                else:
+                    _LOGGER.info("Meural device %s: Item %s is in current gallery %s, trying to display via local device", self.name, media_id, self._gallery_status["current_gallery_name"])
+                    await self.local_meural.send_change_item(media_id)
             else:
-                _LOGGER.info("Meural device %s: Item %s is in current playlist %s, trying to display locally", self.name, media_id, self._gallery_status["current_gallery_name"])
-                await self.local_meural.send_change_item(media_id)
+                _LOGGER.error("Meural device %s: ID %s is not an item", self.name, media_id)
         else:
-            _LOGGER.error("Meural device %s: Does not support displaying this %s media with ID: %s", self.name, media_type, media_id)
+            _LOGGER.error("Meural device %s: Does not support displaying this %s media with ID %s", self.name, media_type, media_id)
 
     async def async_preview_image(self, content_url, content_type):
         if content_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
@@ -479,12 +496,12 @@ class MeuralEntity(MediaPlayerEntity):
         """Implement the websocket media browsing helper."""
 
         device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
-        _LOGGER.info("Meural device %s: Getting %s device galleries from server", self.name, len(device_galleries))
+        _LOGGER.info("Meural device %s: Getting %d device galleries from Meural server", self.name, len(device_galleries))
         user_galleries = await self.meural.get_user_galleries()
-        _LOGGER.info("Meural device %s: Getting %s user galleries from server", self.name, len(user_galleries))
+        _LOGGER.info("Meural device %s: Getting %d user galleries from Meural server", self.name, len(user_galleries))
         [device_galleries.append(x) for x in user_galleries if x not in device_galleries]
         self._remote_galleries = device_galleries
-        _LOGGER.info("Meural device %s: Has %d remote playlists" % (self.name, len(self._remote_galleries)))
+        _LOGGER.info("Meural device %s: Has %d unique remote galleries on Meural server" % (self.name, len(self._remote_galleries)))
 
         if media_content_id not in (None, ""):
             raise BrowseError(
