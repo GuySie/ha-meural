@@ -109,11 +109,11 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             ),
             vol.Optional("previewDuration"): vol.All(
                 vol.Coerce(int),
-                vol.Range(min=0, max=3600)
+                vol.Range(min=0, max=86400)
             ),
             vol.Optional("overlayDuration"): vol.All(
                 vol.Coerce(int),
-                vol.Range(min=0, max=3600)
+                vol.Range(min=0, max=86400)
             ),
             vol.Optional("gestureFeedback"): bool,
             vol.Optional("gestureFeedbackHelp"): bool,
@@ -180,13 +180,18 @@ class MeuralEntity(MediaPlayerEntity):
         [device_galleries.append(x) for x in user_galleries if x not in device_galleries]
         self._remote_galleries = device_galleries
         _LOGGER.info("Meural device %s: Has %d unique remote galleries on Meural server" % (self.name, len(self._remote_galleries)))
-            
-        """Set up first item to display."""
+
+        """Check if current gallery is based on a folder on the SD-card (ID 1, 2, 3 or 4) and set up first item to display."""
         self._gallery_status = await self.local_meural.send_get_gallery_status()
-        try:
-            self._current_item = await self.meural.get_item(int(self._gallery_status["current_item"]))
-        except:
-            _LOGGER.warning("Meural device %s: Error while getting information of currently displayed item from Meural server, resetting item information",  self.name)
+        current_gallery = int(self._gallery_status["current_gallery"])
+        if current_gallery > 4:
+            try:
+                self._current_item = await self.meural.get_item(int(self._gallery_status["current_item"]))
+            except:
+                _LOGGER.warning("Meural device %s: Error while getting information of currently displayed item from Meural server, resetting item information",  self.name)
+                self._current_item = {}
+        else:
+            _LOGGER.info("Meural device %s: Gallery ID %s is a local SD-card folder, resetting item information", self.name, current_gallery)
             self._current_item = {}
 
         """Set up default image duration."""
@@ -215,21 +220,28 @@ class MeuralEntity(MediaPlayerEntity):
             old_item = int(self._gallery_status["current_item"])
             self._gallery_status = await self.local_meural.send_get_gallery_status()
 
-            """Check if current item or orientation have changed."""
-            local_item = int(self._gallery_status["current_item"])
-            new_orientation = self._meural_device["orientation"]
-            if old_item != local_item:
-                """Only get item information if current item has changed since last poll."""
-                _LOGGER.info("Meural device %s: Item changed. Getting information from Meural server for item %s", self.name, local_item)
-                try:
-                    self._current_item = await self.meural.get_item(local_item)
-                except:
-                    _LOGGER.warning("Meural device %s: Error while getting information of currently displayed item %s from Meural server, resetting item information", self.name, local_item)
-                    self._current_item = {}
-            elif old_orientation != new_orientation:
-                """If orientationMatch is enabled, current item in gallery_status will not reflect item displayed after orientation changes. Force update of gallery_status by reloading gallery."""
-                _LOGGER.info("Meural device %s: Orientation has changed, reloading gallery to force update of currently displayed item", self.name)
-                await self.local_meural.send_change_gallery(self._gallery_status["current_gallery"])
+            """Check if current gallery is based on a folder on the SD-card (ID 1, 2, 3 or 4)."""
+            current_gallery = int(self._gallery_status["current_gallery"])
+            if current_gallery > 4:
+
+                """Check if current item or orientation have changed."""
+                local_item = int(self._gallery_status["current_item"])
+                new_orientation = self._meural_device["orientation"]
+                if old_item != local_item:
+                    """Only get item information if current item has changed since last poll."""
+                    _LOGGER.info("Meural device %s: Item changed. Getting information from Meural server for item %s", self.name, local_item)
+                    try:
+                        self._current_item = await self.meural.get_item(local_item)
+                    except:
+                        _LOGGER.warning("Meural device %s: Error while getting information of currently displayed item %s from Meural server, resetting item information", self.name, local_item)
+                        self._current_item = {}
+                elif old_orientation != new_orientation:
+                    """If orientationMatch is enabled, current item in gallery_status will not reflect item displayed after orientation changes. Force update of gallery_status by reloading gallery."""
+                    _LOGGER.info("Meural device %s: Orientation has changed, reloading gallery to force update of currently displayed item", self.name)
+                    await self.local_meural.send_change_gallery(self._gallery_status["current_gallery"])
+            else:
+                _LOGGER.info("Meural device %s: Gallery ID %s is a local SD-card folder, resetting item information", self.name, current_gallery)
+                self._current_item = {}
 
     @property
     def name(self):

@@ -27,7 +27,7 @@ The integration will detect all Canvas devices registered to your account. Each 
 
 ## Integration
 
-The integration supports built-in media player service calls to pause, play, play a specific item or playlist, go to the next/previous track (artwork), select a source (art playlist/album), set shuffle mode, and turn on or turn off. It also supports the built-in Media Browser functionality.  
+The integration supports built-in media player service calls to pause, play, play a specific item or playlist, go to the next/previous track (artwork), select a source (art playlist/album), set shuffle mode, and turn on or turn off.  
 `media_player.media_pause`  
 `media_player.media_play`  
 `media_player.play_media`  
@@ -58,6 +58,8 @@ Additional services built into this integration are:
 These services are fully documented in `services.yaml`.  
 
 **Tip:** The official Meural settings for the sensitivity of brightness to ambient light sensor reading are limited to high (100), medium (20) or low (4). But you can make it any value of sensitivity, on a scale of 0 to 100, using `meural.set_device_option` and setting parameter `alsSensitivity`. I find Meural's low value still makes the screen too bright for my room, so I keep `alsSensitivity` set to 2.  
+
+The integration has limited support for the [use of local SD card folders](https://kb.netgear.com/000060777/Can-I-use-a-micro-SD-card-to-show-my-own-images-or-videos-on-a-Meural-Canvas). The Canvas can display images from a maximum of 4 local folders named `meural1`, `meural2`, `meural3` and `meural4`. You will be able to switch between these folders and go to next/previous images using the normal controls. But no additional information is made available by the Canvas for these images and the integration will be unable to display item name, thumbnail, or other information.  
 
 ### Google Assistant
 Meural currently only supports Alexa voice commands for the Canvas. However, if your Home Assistant supports Google Home / Google Assistant - either [configured manually](https://www.home-assistant.io/integrations/google_assistant/) or via [Nabu Casa](https://www.nabucasa.com/config/google_assistant/) - you can expose a Canvas entity and control it via Google. 
