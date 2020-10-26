@@ -9,5 +9,6 @@
   "zeroconf": [],
   "homekit": {},
   "dependencies": [],
+  "after_dependencies": ["http", "media_source"],
   "codeowners": ["@guysie"]
 }

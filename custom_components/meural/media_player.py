@@ -216,28 +216,28 @@ class MeuralEntity(MediaPlayerEntity):
 
         """Only poll the Meural API if the device is not sleeping."""
         if self._sleep == False:
-            """Update galleries."""
+            """Update local galleries."""
             self._galleries = await self.local_meural.send_get_galleries()
-            """Save orientation and item we had before polling."""
+            """Save orientation we had before update and poll new remote state."""
             old_orientation = self._meural_device["orientation"]
             self._meural_device = await self.meural.get_device(self.meural_device_id)
+            """Save item we had before update and poll new local state."""
             old_item = int(self._gallery_status["current_item"])
             self._gallery_status = await self.local_meural.send_get_gallery_status()
-
             """Check if current gallery is based on a folder on the SD-card (ID 1, 2, 3 or 4)."""
             current_gallery = int(self._gallery_status["current_gallery"])
             if current_gallery > 4:
 
                 """Check if current item or orientation have changed."""
-                local_item = int(self._gallery_status["current_item"])
+                new_item = int(self._gallery_status["current_item"])
                 new_orientation = self._meural_device["orientation"]
-                if old_item != local_item:
+                if old_item != new_item:
                     """Only get item information if current item has changed since last poll."""
-                    _LOGGER.info("Meural device %s: Item changed. Getting information from Meural server for item %s", self.name, local_item)
+                    _LOGGER.info("Meural device %s: Item changed. Getting information from Meural server for item %s", self.name, new_item)
                     try:
-                        self._current_item = await self.meural.get_item(local_item)
+                        self._current_item = await self.meural.get_item(new_item)
                     except:
-                        _LOGGER.warning("Meural device %s: Error while getting information of currently displayed item %s from Meural server, resetting item information", self.name, local_item)
+                        _LOGGER.warning("Meural device %s: Error while getting information of currently displayed item %s from Meural server, resetting item information", self.name, new_item)
                         self._current_item = {}
                 elif old_orientation != new_orientation:
                     """If orientationMatch is enabled, current item in gallery_status will not reflect item displayed after orientation changes. Force update of gallery_status by reloading gallery."""
@@ -540,12 +540,9 @@ class MeuralEntity(MediaPlayerEntity):
 
     async def async_browse_media(self, media_content_type=None, media_content_id=None):
         """Implement the websocket media browsing helper."""
-        result = await media_source.async_browse_media(self.hass, media_content_id)
-        return result
 
-#    async def async_browse_media(self, media_content_type=None, media_content_id=None):
-        """Implement the websocket media browsing helper."""
-"""
+        result = await media_source.async_browse_media(self.hass, media_content_id)
+
         device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
         _LOGGER.info("Meural device %s: Getting %d device galleries from Meural server", self.name, len(device_galleries))
         user_galleries = await self.meural.get_user_galleries()
@@ -554,29 +551,16 @@ class MeuralEntity(MediaPlayerEntity):
         self._remote_galleries = device_galleries
         _LOGGER.info("Meural device %s: Has %d unique remote galleries on Meural server" % (self.name, len(self._remote_galleries)))
 
-        if media_content_id not in (None, ""):
-            raise BrowseError(
-                f"Media not found: {media_content_type} / {media_content_id}"
+        for g in self._galleries:
+            result.children.append(BrowseMedia(
+                title=g["name"],
+                media_class=MEDIA_TYPE_PLAYLIST,
+                media_content_id=g["id"],
+                media_content_type=MEDIA_TYPE_PLAYLIST,
+                can_play=True,
+                can_expand=False,
+                thumbnail=next((h["cover"] for h in self._remote_galleries if h["id"] == int(g["id"])), None),
+                )
             )
 
-        return BrowseMedia(
-            title="Playlists",
-            media_class=MEDIA_CLASS_DIRECTORY,
-            media_content_id="",
-            media_content_type=MEDIA_TYPE_PLAYLIST,
-            can_play=False,
-            can_expand=True,
-            children=[
-                BrowseMedia(
-                    title=g["name"],
-                    media_class=MEDIA_TYPE_PLAYLIST,
-                    media_content_id=g["id"],
-                    media_content_type=MEDIA_TYPE_PLAYLIST,
-                    can_play=True,
-                    can_expand=False,
-                    thumbnail=next((h["cover"] for h in self._remote_galleries if h["id"] == int(g["id"])), None),
-                )
-                for g in self._galleries
-            ],
-        )
-"""
+        return result
