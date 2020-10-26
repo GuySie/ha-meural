@@ -1,3 +1,4 @@
+from datetime import timedelta
 import logging
 import voluptuous as vol
 
@@ -6,7 +7,12 @@ try:
 except ImportError:
     from homeassistant.components.media_player import MediaPlayerDevice as MediaPlayerEntity
 
+from homeassistant.auth.models import RefreshToken
+from homeassistant.components import media_source
+from homeassistant.components.http.auth import async_sign_path
 from homeassistant.components.media_player import BrowseError, BrowseMedia
+from homeassistant.helpers import entity_platform
+from homeassistant.helpers.network import get_url
 
 from homeassistant.const import (
     STATE_PLAYING,
@@ -29,8 +35,6 @@ from homeassistant.components.media_player.const import (
     SUPPORT_TURN_OFF,
     SUPPORT_TURN_ON,
 )
-
-from homeassistant.helpers import entity_platform
 
 from .const import DOMAIN
 from .pymeural import LocalMeural
@@ -473,13 +477,42 @@ class MeuralEntity(MediaPlayerEntity):
         await self.meural.update_device(self.meural_device_id, {"imageShuffle": shuffle})
 
     async def async_play_media(self, media_type, media_id, **kwargs):
-        """Display an image. If sending a JPG or PNG uses preview functionality. If sending an item ID loads locally if image is in currently selected playlist, or via Meural API if this is not the case."""
-        if media_type in ['playlist']:
+        # Play media from media_source.
+        if media_source.is_media_source_id(media_id):
+            sourced_media = await media_source.async_resolve_media(self.hass, media_id)
+            media_type = sourced_media.mime_type
+            media_id = sourced_media.url
+
+            # Check if media type is supported by postcard preview.
+            if media_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:            
+
+                # If media ID is a relative URL, we serve it from HA.
+                if media_id[0] == "/":
+                    user = await self.hass.auth.async_get_owner()
+                    if user.refresh_tokens:
+                        refresh_token: RefreshToken = list(user.refresh_tokens.values())[0]
+
+                        media_id = async_sign_path(self.hass, refresh_token.id, media_id, timedelta(minutes=5))
+
+                    # Prepend external URL
+                    hass_url = get_url(self.hass, prefer_external=True)
+                    media_id = f"{hass_url}{media_id}"
+
+                    _LOGGER.info("Meural device %s: Media type is %s, previewing image from %s", self.name, media_type, media_id)
+                    await self.local_meural.send_postcard(media_id, media_type)
+                else:
+                    _LOGGER.error("Meural device %s: Incorrect URL %s", self.name, media_id)                    
+            else:
+                _LOGGER.error("Meural device %s: Does not support media type %s", self.name, media_type)
+        # Play gallery (playlist/album) by ID.
+        elif media_type in ['playlist']:
             _LOGGER.info("Meural device %s: Media type is %s, playing gallery %s", self.name, media_type, media_id)
             await self.local_meural.send_change_gallery(media_id)
+        # Preview image from URL.
         elif media_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
             _LOGGER.info("Meural device %s: Media type is %s, previewing image from %s", self.name, media_type, media_id)
             await self.local_meural.send_postcard(media_id, media_type)
+        # Play item (artwork) by ID. Play locally if item is in currently displayed gallery. If not, play using Meural server.
         elif media_type in ['item']:
             if media_id.isdigit():
                 currentgallery_id = self._gallery_status["current_gallery"]
@@ -496,6 +529,7 @@ class MeuralEntity(MediaPlayerEntity):
                     await self.local_meural.send_change_item(media_id)
             else:
                 _LOGGER.error("Meural device %s: ID %s is not an item", self.name, media_id)
+        # This is an unsupported media type.
         else:
             _LOGGER.error("Meural device %s: Does not support displaying this %s media with ID %s", self.name, media_type, media_id)
 
@@ -506,7 +540,12 @@ class MeuralEntity(MediaPlayerEntity):
 
     async def async_browse_media(self, media_content_type=None, media_content_id=None):
         """Implement the websocket media browsing helper."""
+        result = await media_source.async_browse_media(self.hass, media_content_id)
+        return result
 
+#    async def async_browse_media(self, media_content_type=None, media_content_id=None):
+        """Implement the websocket media browsing helper."""
+"""
         device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
         _LOGGER.info("Meural device %s: Getting %d device galleries from Meural server", self.name, len(device_galleries))
         user_galleries = await self.meural.get_user_galleries()
@@ -540,3 +579,4 @@ class MeuralEntity(MediaPlayerEntity):
                 for g in self._galleries
             ],
         )
+"""
