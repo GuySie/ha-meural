@@ -477,16 +477,16 @@ class MeuralEntity(MediaPlayerEntity):
         await self.meural.update_device(self.meural_device_id, {"imageShuffle": shuffle})
 
     async def async_play_media(self, media_type, media_id, **kwargs):
-        # Play media from media_source.
+        """Play media from media_source."""
         if media_source.is_media_source_id(media_id):
             sourced_media = await media_source.async_resolve_media(self.hass, media_id)
             media_type = sourced_media.mime_type
             media_id = sourced_media.url
 
-            # Check if media type is supported by postcard preview.
+            """Check if media type is supported by postcard preview."""
             if media_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:            
 
-                # If media ID is a relative URL, we serve it from HA.
+                """If media ID is a relative URL, we serve it from HA."""
                 if media_id[0] == "/":
                     user = await self.hass.auth.async_get_owner()
                     if user.refresh_tokens:
@@ -494,7 +494,7 @@ class MeuralEntity(MediaPlayerEntity):
 
                         media_id = async_sign_path(self.hass, refresh_token.id, media_id, timedelta(minutes=5))
 
-                    # Prepend external URL
+                    """Prepend external URL."""
                     hass_url = get_url(self.hass, prefer_external=True)
                     media_id = f"{hass_url}{media_id}"
 
@@ -505,15 +505,18 @@ class MeuralEntity(MediaPlayerEntity):
                     await self.local_meural.send_postcard(media_id, media_type)
             else:
                 _LOGGER.error("Meural device %s: Does not support media type %s from media sources", self.name, media_type)
-        # Play gallery (playlist/album) by ID.
+
+        # Play gallery (playlist or album) by ID.
         elif media_type in ['playlist']:
             _LOGGER.info("Meural device %s: Media type is %s, playing gallery %s", self.name, media_type, media_id)
             await self.local_meural.send_change_gallery(media_id)
-        # Preview image from URL.
+
+        # "Preview image from URL.
         elif media_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
             _LOGGER.info("Meural device %s: Media type is %s, previewing image from %s", self.name, media_type, media_id)
             await self.local_meural.send_postcard(media_id, media_type)
-        # Play item (artwork) by ID. Play locally if item is in currently displayed gallery. If not, play using Meural server.
+
+        # Play item (artwork) by ID. Play locally if item is in currently displayed gallery. If not, play using Meural server."""
         elif media_type in ['item']:
             if media_id.isdigit():
                 currentgallery_id = self._gallery_status["current_gallery"]
@@ -530,18 +533,19 @@ class MeuralEntity(MediaPlayerEntity):
                     await self.local_meural.send_change_item(media_id)
             else:
                 _LOGGER.error("Meural device %s: ID %s is not an item", self.name, media_id)
+
         # This is an unsupported media type.
         else:
             _LOGGER.error("Meural device %s: Does not support displaying this %s media with ID %s", self.name, media_type, media_id)
 
     async def async_preview_image(self, content_url, content_type):
+        """Preview image from URL."""
         if content_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
             _LOGGER.info("Meural device %s: Media type is %s, previewing image from %s", self.name, content_type, content_url)
             await self.local_meural.send_postcard(content_url, content_type)
 
     async def async_browse_media(self, media_content_type=None, media_content_id=None):
         """Implement the websocket media browsing helper."""
-        _LOGGER.info("Meural device %s: Browsing media. Media type is %s, media ID is %s", self.name, media_content_type, media_content_id)
         if media_content_id in (None, "") and media_content_type in (None, ""):
             response = BrowseMedia(
                 title="Meural Canvas",
@@ -567,14 +571,16 @@ class MeuralEntity(MediaPlayerEntity):
                 ]
             )
             return response
+
         elif media_source.is_media_source_id(media_content_id):
             response = await media_source.async_browse_media(self.hass, media_content_id)
             return response
+
         elif media_content_type=="localmediasource":
             response = await media_source.async_browse_media(self.hass, media_content_id)
             return response
-        elif media_content_type=="meuralplaylists":
 
+        elif media_content_type=="meuralplaylists":
             response = BrowseMedia(
                 title="Meural Playlists",
                 media_class=MEDIA_CLASS_DIRECTORY,
@@ -592,7 +598,15 @@ class MeuralEntity(MediaPlayerEntity):
             self._remote_galleries = device_galleries
             _LOGGER.info("Meural device %s: Has %d unique remote galleries on Meural server" % (self.name, len(self._remote_galleries)))
 
-            for g in self._galleries:
+            for g in sorted(self._galleries, key = lambda i: i["name"]):
+
+                thumb=next((h["cover"] for h in self._remote_galleries if h["id"] == int(g["id"])), None)
+                if thumb == None:
+                    album_items = await self.local_meural.send_get_items_by_gallery(g["id"])
+                    _LOGGER.info("Meural device %s: Replacing missing cover of album %s with first item image. Getting information from Meural server for item %s", self.name, g["id"], album_items[0]["id"])
+                    first_item = await self.meural.get_item(album_items[0]["id"])
+                    thumb = first_item["image"]
+
                 response.children.append(BrowseMedia(
                     title=g["name"],
                     media_class=MEDIA_TYPE_PLAYLIST,
@@ -600,13 +614,13 @@ class MeuralEntity(MediaPlayerEntity):
                     media_content_type=MEDIA_TYPE_PLAYLIST,
                     can_play=True,
                     can_expand=False,
-                    thumbnail=next((h["cover"] for h in self._remote_galleries if h["id"] == int(g["id"])), None),
+                    thumbnail=thumb,
                     )
                 )
             return response
 
         else:
-            _LOGGER.info("Meural device %s: Media not found: Media type is %s, media ID is %s", self.name, media_content_type, media_content_id)
+            _LOGGER.error("Meural device %s: Media not found: Media type is %s, media ID is %s", self.name, media_content_type, media_content_id)
             raise BrowseError(
                 f"Media not found: {media_content_type} / {media_content_id}"
             )
