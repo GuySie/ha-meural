@@ -169,7 +169,8 @@ class MeuralEntity(MediaPlayerEntity):
     async def async_added_to_hass(self):
         """Set up local galleries."""
         try:
-            self._galleries = await self.local_meural.send_get_galleries()
+            localgalleries = await self.local_meural.send_get_galleries()
+            self._galleries = sorted(localgalleries, key = lambda i: i["name"])
             _LOGGER.info("Meural device %s: Has %d local galleries on local device" % (self.name, len(self._galleries)))
         except:
             _LOGGER.error("Meural device %s: Error while contacting local device, aborting setup", self.name)
@@ -217,7 +218,8 @@ class MeuralEntity(MediaPlayerEntity):
         """Only poll the Meural API if the device is not sleeping."""
         if self._sleep == False:
             """Update local galleries."""
-            self._galleries = await self.local_meural.send_get_galleries()
+            localgalleries = await self.local_meural.send_get_galleries()
+            self._galleries = sorted(localgalleries, key = lambda i: i["name"])
             """Save orientation we had before update and poll new remote state."""
             old_orientation = self._meural_device["orientation"]
             self._meural_device = await self.meural.get_device(self.meural_device_id)
@@ -595,7 +597,7 @@ class MeuralEntity(MediaPlayerEntity):
             self._remote_galleries = device_galleries
             _LOGGER.info("Meural device %s: Has %d unique remote galleries on Meural server" % (self.name, len(self._remote_galleries)))
 
-            for g in sorted(self._galleries, key = lambda i: i["name"]):
+            for g in self._galleries:
 
                 thumb=next((h["cover"] for h in self._remote_galleries if h["id"] == int(g["id"])), None)
                 if thumb == None and (int(g["id"])>4):
