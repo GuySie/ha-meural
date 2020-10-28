@@ -495,7 +495,7 @@ class MeuralEntity(MediaPlayerEntity):
                         media_id = async_sign_path(self.hass, refresh_token.id, media_id, timedelta(minutes=5))
 
                     """Prepend external URL."""
-                    hass_url = get_url(self.hass, prefer_external=True)
+                    hass_url = get_url(self.hass, allow_internal=True)
                     media_id = f"{hass_url}{media_id}"
 
                     _LOGGER.info("Meural device %s: Media type is %s, previewing image from %s", self.name, media_type, media_id)

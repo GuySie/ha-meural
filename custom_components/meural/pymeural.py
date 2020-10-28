@@ -200,10 +200,10 @@ class LocalMeural:
         text = await response.text()
 
         r = json.loads(text)
-        _LOGGER.info('Meural device %s: Uploaded: %s: %s' % (
+        _LOGGER.info('Meural device %s: Image uploaded. Status: %s, response: %s' % (
                 self.device['alias'], r['status'], r['response']))
         if r['status'] != 'pass':
-            _LOGGER.error('Meural device %s: Could not upload: %s' % (
+            _LOGGER.error('Meural device %s: Could not upload. Response: %s' % (
                 self.device['alias'], r['response']))
 
         return response
