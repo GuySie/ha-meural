@@ -184,26 +184,27 @@ class LocalMeural:
         if content_type == 'image/jpg':
             content_type = 'image/jpeg'
 
-        _LOGGER.info('Meural device %s: Sending postcard %s' % (
+        _LOGGER.info('Meural device %s: Sending postcard. URL is %s' % (
             self.device['alias'], url))
         with async_timeout.timeout(10):
             response = await self.session.get(url)
             image = await response.read()
-        _LOGGER.info('Meural device %s: Downloaded %d bytes of image' % (
+        _LOGGER.info('Meural device %s: Sending postcard. Downloaded %d bytes of image' % (
             self.device['alias'], len(image)))
 
         data = aiohttp.FormData()
         data.add_field('photo', image, content_type=content_type)
         response = await self.session.post(f"http://{self.ip}/remote/postcard",
             data=data)
-        _LOGGER.info(response)
+        _LOGGER.info('Meural device %s: Sending postcard. Response: %s' % (
+            self.device['alias'], response))
         text = await response.text()
 
         r = json.loads(text)
-        _LOGGER.info('Meural device %s: Image uploaded. Status: %s, response: %s' % (
+        _LOGGER.info('Meural device %s: Sending postcard. Image uploaded, status: %s, response: %s' % (
                 self.device['alias'], r['status'], r['response']))
         if r['status'] != 'pass':
-            _LOGGER.error('Meural device %s: Could not upload. Response: %s' % (
+            _LOGGER.error('Meural device %s: Sending postcard. Could not upload, response: %s' % (
                 self.device['alias'], r['response']))
 
         return response
