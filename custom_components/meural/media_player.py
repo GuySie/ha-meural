@@ -22,7 +22,7 @@ from homeassistant.const import (
 
 from homeassistant.components.media_player.const import (
     MEDIA_CLASS_DIRECTORY,
-    MEDIA_TYPE_MUSIC,
+    MEDIA_TYPE_IMAGE,
     MEDIA_TYPE_PLAYLIST,
     SUPPORT_BROWSE_MEDIA,
     SUPPORT_SELECT_SOURCE,
@@ -167,6 +167,16 @@ class MeuralEntity(MediaPlayerEntity):
         )
 
     async def async_added_to_hass(self):
+        """Set up default image duration."""
+        try:
+            _LOGGER.info("Meural device %s: Setup. Getting device information from Meural server", self.name)
+            self._meural_device = await self.meural.get_device(self.meural_device_id)
+            self._pause_duration = self._meural_device["imageDuration"]
+        except:
+            _LOGGER.error("Meural device %s: Setup. Error while contacting Meural server, aborting setup", self.name, exc_info=True)
+            self._abort = True
+            return
+
         """Set up local galleries."""
         try:
             localgalleries = await self.local_meural.send_get_galleries()
@@ -178,13 +188,18 @@ class MeuralEntity(MediaPlayerEntity):
             return
 
         """Set up remote galleries."""
-        device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
-        _LOGGER.info("Meural device %s: Setup. Getting %d device galleries from Meural server", self.name, len(device_galleries))
-        user_galleries = await self.meural.get_user_galleries()
-        _LOGGER.info("Meural device %s: Setup. Getting %d user galleries from Meural server", self.name, len(user_galleries))
-        [device_galleries.append(x) for x in user_galleries if x not in device_galleries]
-        self._remote_galleries = device_galleries
-        _LOGGER.info("Meural device %s: Setup. Has %d unique remote galleries on Meural server" % (self.name, len(self._remote_galleries)))
+        try:
+            device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
+            _LOGGER.info("Meural device %s: Setup. Getting %d device galleries from Meural server", self.name, len(device_galleries))
+            user_galleries = await self.meural.get_user_galleries()
+            _LOGGER.info("Meural device %s: Setup. Getting %d user galleries from Meural server", self.name, len(user_galleries))
+            [device_galleries.append(x) for x in user_galleries if x not in device_galleries]
+            self._remote_galleries = device_galleries
+            _LOGGER.info("Meural device %s: Setup. Has %d unique remote galleries on Meural server" % (self.name, len(self._remote_galleries)))
+        except:
+            _LOGGER.error("Meural device %s: Setup. Error while contacting Meural server, aborting setup", self.name, exc_info=True)
+            self._abort = True
+            return
 
         """Check if current gallery is an SD-card folder (ID 1, 2, 3 or 4) and set up first item to display."""
         self._gallery_status = await self.local_meural.send_get_gallery_status()
@@ -199,9 +214,6 @@ class MeuralEntity(MediaPlayerEntity):
             _LOGGER.info("Meural device %s: Setup. Gallery %s is a local SD-card folder, resetting item information", self.name, current_gallery)
             self._current_item = {}
 
-        """Set up default image duration."""
-        self._meural_device = await self.meural.get_device(self.meural_device_id)
-        self._pause_duration = self._meural_device["imageDuration"]
         _LOGGER.info("Meural device %s: Setup has completed",  self.name)
 
     async def async_update(self):
@@ -308,8 +320,8 @@ class MeuralEntity(MediaPlayerEntity):
 
     @property
     def media_content_type(self):
-        """Return the content type of current playing media. Because Image does not support artist names, use Music as alternative."""
-        return MEDIA_TYPE_MUSIC
+        """Return the content type of current playing media."""
+        return MEDIA_TYPE_IMAGE
 
     @property
     def media_summary(self):
@@ -329,7 +341,7 @@ class MeuralEntity(MediaPlayerEntity):
 
     @property
     def media_artist(self):
-        """Artist of current playing media, normally for music track only. Replaced with artist name and the artwork year."""
+        """Artist of current playing media. Replaced with artist name and the artwork year."""
         if (not self._current_item) is False:
             if self._current_item["artistName"] is not None:
                 if self._current_item["year"] is not None:
