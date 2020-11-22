@@ -7,7 +7,7 @@ The [NETGEAR Meural Canvas](https://meural.netgear.com/) is a digital art frame 
 [Home Assistant](https://www.home-assistant.io/) is an open source home automation package that puts local control and privacy first.  
 This integration leverages Meural's API and local interface to control the Meural Canvas as a media player in Home Assistant.  
 
-![Meural Canvas in Media Control card](https://raw.githubusercontent.com/GuySie/ha-meural/dev/images/mediacontrolcard.png)
+![Meural Canvas in Media Control card](https://raw.githubusercontent.com/GuySie/ha-meural/master/images/mediacontrolcard.png)
 
 ## Installation
 ### HACS Install
@@ -49,7 +49,7 @@ Set parameter `media_content_type` to `item` and set parameter `media_content_id
 3. Displays a playlist/album that is already uploaded to your Canvas.  
 Set parameter `media_content_type` to `playlist` and parameter `media_content_id` to the gallery ID of the playlist or album that you wish to display. You will not be able to display a playlist or album that has not yet been sent to the Canvas through the Meural app or website. When typing in gallery IDs manually, please note that albums are represented by a gallery ID on your Canvas that is not the same as their album ID on the Meural servers.  
 
-![Meural Canvas in entity settings](https://raw.githubusercontent.com/GuySie/ha-meural/dev/images/entitysettings.png)
+![Meural Canvas in entity settings](https://raw.githubusercontent.com/GuySie/ha-meural/master/images/entitysettings.png)
 
 ### Other Services
 Additional services built into this integration are:  
@@ -66,14 +66,14 @@ These services are fully documented in `services.yaml`.
 ### Media Browser
 Home Assistant's Media Browser is supported by this integration. This gives you two methods to change playlist/albums: you can still switch using the text-only source drop-down in the entity's settings, but now you can also visually browse your playlists and albums using the media browser button on the media control card or the entity's settings.  
 
-![Playlists in media browser of Meural Canvas](https://raw.githubusercontent.com/GuySie/ha-meural/dev/images/mediabrowserplaylists.png)
+![Playlists in media browser of Meural Canvas](https://raw.githubusercontent.com/GuySie/ha-meural/master/images/mediabrowserplaylists.png)
 
 ### Media Source
 HA-meural also supports displaying images from Home Assistant's Media Sources through the same Browser interface. If a source in Home Assistant, like the media folder of your installation, contains JPG or PNG files they can be displayed on the Canvas. Please note: this makes use of the preview functionality of the Canvas, and will only display the image temporarily. If you wish to increase the amount of time these images display you can set parameter `previewDuration` using service `meural.set_device_option`.  
 
 The integration does *not* support offering the artwork displayed on the Canvas as a Media Source to other Home Assistant components.  
 
-![Media browser of Meural Canvas](https://raw.githubusercontent.com/GuySie/ha-meural/dev/images/mediabrowser.png)
+![Media browser of Meural Canvas](https://raw.githubusercontent.com/GuySie/ha-meural/master/images/mediabrowser.png)
 
 ### SD card folders
 This integration supports the [use of SD card folders on your Canvas](https://kb.netgear.com/000060777/Can-I-use-a-micro-SD-card-to-show-my-own-images-or-videos-on-a-Meural-Canvas). The Canvas can display images from a maximum of 4 local folders named `meural1`, `meural2`, `meural3` and `meural4`. You will be able to switch between these folders, select them in the Media Browser, and go to next or previous images in them using the normal controls. However, no additional artwork information is made available by the Canvas for these images and the integration will be unable to display details such as artwork name or thumbnail.  
