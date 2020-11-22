@@ -21,6 +21,12 @@ toggle_informationcard:
     entity_id:
       description: Entity ID of the Meural Canvas to toggle display on.
       example: "media_player.meural-123"
+synchronize:
+  description: Synchronize the Meural server with your Meural Canvas.
+  fields:
+    entity_id:
+      description: Entity ID of the Meural Canvas to synchronize.
+      example: "media_player.meural-123"
 preview_image:
   description: Preview an image from an URL on Meural Canvas.
   fields:
@@ -59,13 +65,13 @@ set_device_option:
       example: "false"
     imageDuration:
       description: Length of time in seconds between images changing on your Canvas. To prevent images from changing automatically, enter '0'.
-      example: "300"
+      example: "1800"
     previewDuration:
       description: Length of time in seconds an image previews on your Canvas from the mobile app.
-      example: "120"
+      example: "60"
     overlayDuration:
       description: Length of time in seconds that overlays such as captions, settings, and playlists are displayed on your Canvas.
-      example: "60"
+      example: "120"
     gestureFeedback:
       description: Your Canvas will display a preview of images in the playlist when switching image manually.
       example: "false"
