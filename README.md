@@ -27,7 +27,7 @@ Log in with your NETGEAR account.
 
 The integration will detect all Canvas devices registered to your account. Each Canvas will become a Media Player entity and can be added to your Lovelace UI using any component that supports it, for example the Media Control card. By default your entity's name will correspond to the name of the Canvas, which out-of-the-box consists of a painter's name and 3 digits like `picasso-428` - resulting in the entity `media_player.picasso-428` being created. You can override the name and entity ID in Home Assistant's entity settings.  
 
-**Note:** This integration does not yet support NETGEAR's 2-factor authentication method of logging in. Please use the standard login and password method to use this integration.  
+**Note:** This integration does not yet support NETGEAR's two-step verification method of logging in. Please use the standard login and password method to use this integration.  
 
 ## Integration
 The integration supports built-in media player service calls to pause, play, play a specific item or playlist/album, go to the next/previous track (artwork), select a source (playlist/album), set shuffle mode, and turn on or turn off.  
@@ -63,8 +63,6 @@ These services are fully documented in `services.yaml`.
 
 **Tip:** The official Meural settings for the sensitivity of the ambient light sensor reading are limited to high (100), medium (20) or low (4). But you can make it any value of sensitivity, on a scale of 0 to 100, using `meural.set_device_option` and setting parameter `alsSensitivity`. I find Meural's low value still makes the screen too bright for my room, so I keep `alsSensitivity` set to 2. You can experiment with this setting to fine-tune a perfect brightness to match your room.  
 
-![Media browser of Meural Canvas](https://raw.githubusercontent.com/GuySie/ha-meural/dev/images/mediabrowser.png)
-
 ### Media Browser
 Home Assistant's Media Browser is supported by this integration. This gives you two methods to change playlist/albums: you can still switch using the text-only source drop-down in the entity's settings, but now you can also visually browse your playlists and albums using the media browser button on the media control card or the entity's settings.  
 
@@ -75,8 +73,10 @@ HA-meural also supports displaying images from Home Assistant's Media Sources th
 
 The integration does *not* support offering the artwork displayed on the Canvas as a Media Source to other Home Assistant components.  
 
+![Media browser of Meural Canvas](https://raw.githubusercontent.com/GuySie/ha-meural/dev/images/mediabrowser.png)
+
 ### SD card folders
-This integration supports the [use of SD card folders on your Canvas](https://kb.netgear.com/000060777/Can-I-use-a-micro-SD-card-to-show-my-own-images-or-videos-on-a-Meural-Canvas). The Canvas can display images from a maximum of 4 local folders named `meural1`, `meural2`, `meural3` and `meural4`. You will be able to switch between these folders, select them in the Media Browser, and go to next/previous images in them using the normal controls. However, no additional artwork information is made available by the Canvas for these images and the integration will be unable to display details such as artwork name or thumbnail.  
+This integration supports the [use of SD card folders on your Canvas](https://kb.netgear.com/000060777/Can-I-use-a-micro-SD-card-to-show-my-own-images-or-videos-on-a-Meural-Canvas). The Canvas can display images from a maximum of 4 local folders named `meural1`, `meural2`, `meural3` and `meural4`. You will be able to switch between these folders, select them in the Media Browser, and go to next or previous images in them using the normal controls. However, no additional artwork information is made available by the Canvas for these images and the integration will be unable to display details such as artwork name or thumbnail.  
 
 ### Google Assistant
 Meural currently only supports Alexa voice commands for the Canvas. However, if your Home Assistant supports Google Home / Google Assistant - either [configured manually](https://www.home-assistant.io/integrations/google_assistant/) or via [Nabu Casa](https://www.nabucasa.com/config/google_assistant/) - you can expose a Canvas entity and control it via Google. 
