@@ -30,7 +30,6 @@ The integration will detect all Canvas devices registered to your account. Each 
 **Note:** This integration does not yet support NETGEAR's 2-factor authentication method of logging in. Please use the standard login and password method to use this integration.  
 
 ## Integration
-
 The integration supports built-in media player service calls to pause, play, play a specific item or playlist/album, go to the next/previous track (artwork), select a source (playlist/album), set shuffle mode, and turn on or turn off.  
 `media_player.media_pause`  
 `media_player.media_play`  
@@ -46,12 +45,13 @@ Service `media_player.play_media` can be used in 3 different ways:
 1. Temporarily displays an image from a specified URL on your Canvas.  
 Set parameter `media_content_type` to `image/jpg` or `image/png`, depending on your image type, and set `media_content_id` to the URL of the image you want to display. The amount of time these images will display can be set with parameter `previewDuration` using service `meural.set_device_option`. This is most suitable for use in automations when you wish to display images temporarily on the Canvas without uploading them as artwork to the Meural servers.  
 2. Displays artwork hosted on the Meural servers on your Canvas.  
-Set parameter `media_content_type` to `item` and set parameter `media_content_id` to the item ID of the artwork you wish to display. You will only be able to play items that you have permission for, i.e. artwork you have uploaded yourself or that your current Meural membership gives you access to. If the item is not in the currently selected playlist or album, the Canvas will also switch to an *'All works'* playlist that contains all individual items you have played in this manner.  
+Set parameter `media_content_type` to `item` and set parameter `media_content_id` to the item ID of the artwork you wish to display. You will only be able to play artwork that you have permission for, i.e. that you have uploaded yourself or that your current Meural membership gives you access to. If the artwork is not in the currently selected playlist or album, the Canvas will also switch to an *'All works'* playlist that contains all individual artwork you have played in this manner.  
 3. Displays a playlist/album that is already uploaded to your Canvas.  
 Set parameter `media_content_type` to `playlist` and parameter `media_content_id` to the gallery ID of the playlist or album that you wish to display. You will not be able to display a playlist or album that has not yet been sent to the Canvas through the Meural app or website. When typing in gallery IDs manually, please note that albums are represented by a gallery ID on your Canvas that is not the same as their album ID on the Meural servers.  
 
 ![Meural Canvas in entity settings](https://raw.githubusercontent.com/GuySie/ha-meural/dev/images/entitysettings.png)
 
+### Other Services
 Additional services built into this integration are:  
 `meural.set_device_option`  
 `meural.set_brightness`  
@@ -63,15 +63,20 @@ These services are fully documented in `services.yaml`.
 
 **Tip:** The official Meural settings for the sensitivity of the ambient light sensor reading are limited to high (100), medium (20) or low (4). But you can make it any value of sensitivity, on a scale of 0 to 100, using `meural.set_device_option` and setting parameter `alsSensitivity`. I find Meural's low value still makes the screen too bright for my room, so I keep `alsSensitivity` set to 2. You can experiment with this setting to fine-tune a perfect brightness to match your room.  
 
-The integration supports the [use of SD card folders on your Canvas](https://kb.netgear.com/000060777/Can-I-use-a-micro-SD-card-to-show-my-own-images-or-videos-on-a-Meural-Canvas). The Canvas can display images from a maximum of 4 local folders named `meural1`, `meural2`, `meural3` and `meural4`. You will be able to switch between these folders, select them in the Media Browser, and go to next/previous images in them using the normal controls. However, no additional artwork information is made available by the Canvas for these images and the integration will be unable to display details such as artwork name or thumbnail.  
-
 ![Media browser of Meural Canvas](https://raw.githubusercontent.com/GuySie/ha-meural/dev/images/mediabrowser.png)
 
-Home Assistant's Media Browser is supported by this integration. This gives you two methods to change playlist/albums: you can still switch using the text-only source drop-down in the entity's settings, but now you can also visually browse your playlists and albums using the media browser button on the media control card.  
+### Media Browser
+Home Assistant's Media Browser is supported by this integration. This gives you two methods to change playlist/albums: you can still switch using the text-only source drop-down in the entity's settings, but now you can also visually browse your playlists and albums using the media browser button on the media control card or the entity's settings.  
 
 ![Playlists in media browser of Meural Canvas](https://raw.githubusercontent.com/GuySie/ha-meural/dev/images/mediabrowserplaylists.png)
 
-This integration also supports displaying images from Home Assistant's Media Sources through the same Browser interface. If a source in Home Assistant, like the media folder of your installation, contains JPG or PNG files they can be displayed on the Canvas. Please note: this makes use of the preview functionality of the Canvas, and will only display the image temporarily. If you wish to increase the amount of time these images display you can set parameter `previewDuration` using service `meural.set_device_option`.  
+### Media Source
+HA-meural also supports displaying images from Home Assistant's Media Sources through the same Browser interface. If a source in Home Assistant, like the media folder of your installation, contains JPG or PNG files they can be displayed on the Canvas. Please note: this makes use of the preview functionality of the Canvas, and will only display the image temporarily. If you wish to increase the amount of time these images display you can set parameter `previewDuration` using service `meural.set_device_option`.  
+
+The integration does *not* support offering the artwork displayed on the Canvas as a Media Source to other Home Assistant components.  
+
+### SD card folders
+This integration supports the [use of SD card folders on your Canvas](https://kb.netgear.com/000060777/Can-I-use-a-micro-SD-card-to-show-my-own-images-or-videos-on-a-Meural-Canvas). The Canvas can display images from a maximum of 4 local folders named `meural1`, `meural2`, `meural3` and `meural4`. You will be able to switch between these folders, select them in the Media Browser, and go to next/previous images in them using the normal controls. However, no additional artwork information is made available by the Canvas for these images and the integration will be unable to display details such as artwork name or thumbnail.  
 
 ### Google Assistant
 Meural currently only supports Alexa voice commands for the Canvas. However, if your Home Assistant supports Google Home / Google Assistant - either [configured manually](https://www.home-assistant.io/integrations/google_assistant/) or via [Nabu Casa](https://www.nabucasa.com/config/google_assistant/) - you can expose a Canvas entity and control it via Google. 
