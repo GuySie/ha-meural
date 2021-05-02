@@ -11,5 +11,6 @@
   "dependencies": [],
   "after_dependencies": ["http", "media_source"],
   "version": "0.2.1",
-  "codeowners": ["@guysie"]
+  "codeowners": ["@guysie"],
+  "iot_class": "cloud_polling"
 }
