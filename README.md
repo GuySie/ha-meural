@@ -27,7 +27,9 @@ Log in with your NETGEAR account.
 
 The integration will detect all Canvas devices registered to your account. Each Canvas will become a Media Player entity and can be added to your Lovelace UI using any component that supports it, for example the Media Control card. By default your entity's name will correspond to the name of the Canvas, which out-of-the-box consists of a painter's name and 3 digits like `picasso-428` - resulting in the entity `media_player.picasso-428` being created. You can override the name and entity ID in Home Assistant's entity settings.  
 
-**Note:** This integration does not yet support NETGEAR's two-step verification method of logging in. Please use the standard login and password method to use this integration.  
+**Note 1:** This integration does not yet support NETGEAR's two-step verification method of logging in. Please use the standard login and password method to use this integration.  
+
+**Note 2:** When you log in the integration gets an authentication token from the Meural servers. The integration currently does not detect when this authentication token expires. Tokens appear to live for several months on average. If your Canvas starts behaving abnormally in Home Assistant, please delete this integration in *Configuration*, *Integrations*, and then re-add it to log in again and refresh your authentication token.  
 
 ## Integration
 The integration supports built-in media player service calls to pause, play, play a specific item or playlist/album, go to the next/previous track (artwork), select a source (playlist/album), set shuffle mode, and turn on or turn off.  
