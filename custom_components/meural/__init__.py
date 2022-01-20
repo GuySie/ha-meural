@@ -23,7 +23,9 @@ async def async_setup(hass: HomeAssistant, config: dict):
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up Meural from a config entry."""
     hass.data[DOMAIN][entry.entry_id] = pymeural.PyMeural(
-        entry.data["token"], hass.helpers.aiohttp_client.async_get_clientsession()
+        entry.data["email"],
+        entry.data["password"],
+        hass.helpers.aiohttp_client.async_get_clientsession()
     )
 
     for component in PLATFORMS:
