@@ -282,6 +282,7 @@ class MeuralEntity(MediaPlayerEntity):
             "manufacturer": "NETGEAR",
             "model": self._meural_device["frameModel"]["name"],
             "sw_version": self._meural_device["version"],
+            "configuration_url": "http://" + self._meural_device["localIp"] + "/remote/",
         }
 
     @property
