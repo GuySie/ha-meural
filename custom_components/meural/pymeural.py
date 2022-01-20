@@ -8,6 +8,10 @@ from typing import Dict
 import aiohttp
 import async_timeout
 
+from aiohttp.client_exceptions import ClientResponseError
+
+from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntry
+
 _LOGGER = logging.getLogger(__name__)
 
 BASE_URL = "https://api.meural.com/v0/"
@@ -30,11 +34,16 @@ async def authenticate(
 
 
 class PyMeural:
-    def __init__(self, token, session: aiohttp.ClientSession):
-        self.token = token
+    def __init__(self, username, password, session: aiohttp.ClientSession):
+        self.username = username
+        self.password = password
         self.session = session
+        self.token = None
 
     async def request(self, method, path, data=None) -> Dict:
+        fetched_new_token = self.token is None
+        if self.token == None:
+            await self.get_new_token()
         url = f"{BASE_URL}{path}"
         kwargs = {}
         if data:
@@ -43,18 +52,33 @@ class PyMeural:
             else:
                 kwargs["json"] = data
         with async_timeout.timeout(10):
-            resp = await self.session.request(
-                method,
-                url,
-                headers={
-                    "Authorization": f"Token {self.token}",
-                    "x-meural-api-version": "3",
-                },
-                raise_for_status=True,
-                **kwargs,
-            )
+            try:
+                resp = await self.session.request(
+                    method,
+                    url,
+                    headers={
+                        "Authorization": f"Token {self.token}",
+                        "x-meural-api-version": "3",
+                    },
+                    raise_for_status=True,
+                    **kwargs,
+                )
+            except ClientResponseError as err:
+                # If a new token was just fetched and it fails again, just raise
+                if fetched_new_token:
+                    raise
+                _LOGGER.info('Meural: Sending Request failed. Re-Authenticating.')
+                self.token = None
+                return self.request(method, path, data)
+            except Exception as err:
+                _LOGGER.warning('Meural: Sending Request failed. Ignoring: %s' %err)
+                return
         response = await resp.json()
         return response["data"]
+
+    async def get_new_token(self):
+        _LOGGER.warning('Meural: Getting new auth token.')
+        self.token = await authenticate(self.session, self.username, self.password)
 
     async def get_user(self):
         return await self.request("get", "user")

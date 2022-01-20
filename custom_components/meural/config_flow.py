@@ -23,12 +23,9 @@ async def validate_input(hass: core.HomeAssistant, data):
     """
     session = hass.helpers.aiohttp_client.async_get_clientsession()
     try:
-        token = await pymeural.authenticate(session, data["email"], data["password"])
+        await pymeural.authenticate(session, data["email"], data["password"])
     except (aiohttp.ClientError, asyncio.TimeoutError):
         raise CannotConnect
-
-    return token
-
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Meural."""
@@ -41,12 +38,15 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             try:
-                token = await validate_input(self.hass, user_input)
+                await validate_input(self.hass, user_input)
 
                 await self.async_set_unique_id(user_input["email"], raise_on_progress=False)
                 return self.async_create_entry(
                     title=user_input["email"],
-                    data={"email": user_input["email"], "token": token},
+                    data={
+                        "email": user_input["email"],
+                        "password": user_input["password"]
+                    },
                 )
             except CannotConnect:
                 errors["base"] = "cannot_connect"
@@ -60,10 +60,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user", data_schema=DATA_SCHEMA, errors=errors
         )
 
-
 class CannotConnect(exceptions.HomeAssistantError):
     """Error to indicate we cannot connect."""
 
 
 class InvalidAuth(exceptions.HomeAssistantError):
     """Error to indicate there is invalid auth."""
+
