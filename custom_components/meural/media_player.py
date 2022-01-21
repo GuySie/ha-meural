@@ -18,6 +18,8 @@ from homeassistant.const import (
     STATE_PLAYING,
     STATE_PAUSED,
     STATE_OFF,
+    MAJOR_VERSION,
+    MINOR_VERSION,
 )
 
 from homeassistant.components.media_player.const import (
@@ -499,11 +501,6 @@ class MeuralEntity(MediaPlayerEntity):
             media_type = sourced_media.mime_type
             media_id = sourced_media.url
 
-            # Check if media type is supported by postcard preview.
-            if media_type not in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
-                _LOGGER.error("Meural device %s: Playing media. Does not support media type %s from media sources", self.name, media_type)
-                return
-
             # If media ID is a relative URL, we serve it from HA.
             if media_id[0] == "/":
                 user = await self.hass.auth.async_get_owner()
@@ -595,7 +592,11 @@ class MeuralEntity(MediaPlayerEntity):
             return response
 
         elif media_source.is_media_source_id(media_content_id) or media_content_type=="localmediasource":
-            response = await media_source.async_browse_media(self.hass, media_content_id)
+            kwargs = {}
+            if MAJOR_VERSION > 2022 or (MAJOR_VERSION == 2022 and MINOR_VERSION >= 2):
+                kwargs['content_filter'] = lambda item: item.media_content_type in ('image/jpg', 'image/png', 'image/jpeg')
+
+            response = await media_source.async_browse_media(self.hass, media_content_id, **kwargs)
             return response
 
         elif media_content_type=="meuralplaylists":
