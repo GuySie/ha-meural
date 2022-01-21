@@ -27,7 +27,6 @@ async def validate_input(hass: core.HomeAssistant, data):
     except (aiohttp.ClientError, asyncio.TimeoutError):
         raise CannotConnect
 
-    return
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):

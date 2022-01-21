@@ -41,6 +41,7 @@ class PyMeural:
         self.token = None
 
     async def request(self, method, path, data=None) -> Dict:
+        fetched_new_token = self.token is None
         if self.token == None:
             await self.get_new_token()
         url = f"{BASE_URL}{path}"
@@ -63,9 +64,12 @@ class PyMeural:
                     **kwargs,
                 )
             except ClientResponseError as err:
-                _LOGGER.warning('Meural: Sending Request failed. Re-Authenticating.')
+                # If a new token was just fetched and it fails again, just raise
+                if fetched_new_token:
+                    raise
+                _LOGGER.info('Meural: Sending Request failed. Re-Authenticating.')
                 self.token = None
-                return
+                return self.request(method, path, data)
             except Exception as err:
                 _LOGGER.warning('Meural: Sending Request failed. Ignoring: %s' %err)
                 return
@@ -73,7 +77,6 @@ class PyMeural:
         return response["data"]
 
     async def get_new_token(self):
-        _LOGGER.warning('Meural: Getting new auth token.')
         self.token = await authenticate(self.session, self.username, self.password)
 
     async def get_user(self):
