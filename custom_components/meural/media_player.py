@@ -18,6 +18,8 @@ from homeassistant.const import (
     STATE_PLAYING,
     STATE_PAUSED,
     STATE_OFF,
+    MAJOR_VERSION,
+    MINOR_VERSION,
 )
 
 from homeassistant.components.media_player.const import (
@@ -484,7 +486,7 @@ class MeuralEntity(MediaPlayerEntity):
             _LOGGER.info("Meural device %s: Unpause player. Setting image duration on Meural server to %s", self.name, self._pause_duration)
             await self.meural.update_device(self.meural_device_id, {"imageDuration": self._pause_duration})
         else:
-            _LOGGER.info("Meural device %s: Unpause player. Setting image duration on Meural server to 1800", self.name)            
+            _LOGGER.info("Meural device %s: Unpause player. Setting image duration on Meural server to 1800", self.name)
             await self.meural.update_device(self.meural_device_id, {"imageDuration": 1800})
 
     async def async_set_shuffle(self, shuffle):
@@ -499,28 +501,26 @@ class MeuralEntity(MediaPlayerEntity):
             media_type = sourced_media.mime_type
             media_id = sourced_media.url
 
-            """Check if media type is supported by postcard preview."""
-            if media_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:            
+            # If media ID is a relative URL, we serve it from HA.
+            if media_id[0] == "/":
+                user = await self.hass.auth.async_get_owner()
+                if user.refresh_tokens:
+                    refresh_token: RefreshToken = list(user.refresh_tokens.values())[0]
 
-                """If media ID is a relative URL, we serve it from HA."""
-                if media_id[0] == "/":
-                    user = await self.hass.auth.async_get_owner()
-                    if user.refresh_tokens:
-                        refresh_token: RefreshToken = list(user.refresh_tokens.values())[0]
+                    # Use kwargs so it works both before and after the change in Home Assistant 2022.2
+                    media_id = async_sign_path(
+                        hass=self.hass,
+                        refresh_token_id=refresh_token.id,
+                        path=media_id,
+                        expiration=timedelta(minutes=5)
+                    )
 
-                        media_id = async_sign_path(self.hass, refresh_token.id, media_id, timedelta(minutes=5))
+                # Prepend external URL.
+                hass_url = get_url(self.hass, allow_internal=True)
+                media_id = f"{hass_url}{media_id}"
 
-                    """Prepend external URL."""
-                    hass_url = get_url(self.hass, allow_internal=True)
-                    media_id = f"{hass_url}{media_id}"
-
-                    _LOGGER.info("Meural device %s: Playing media. Media type is %s, previewing image from %s", self.name, media_type, media_id)
-                    await self.local_meural.send_postcard(media_id, media_type)
-                else:
-                    _LOGGER.info("Meural device %s: Playing media. Media type is %s, previewing image from %s", self.name, media_type, media_id)
-                    await self.local_meural.send_postcard(media_id, media_type)
-            else:
-                _LOGGER.error("Meural device %s: Playing media. Does not support media type %s from media sources", self.name, media_type)
+            _LOGGER.info("Meural device %s: Playing media. Media type is %s, previewing image from %s", self.name, media_type, media_id)
+            await self.local_meural.send_postcard(media_id, media_type)
 
         # Play gallery (playlist or album) by ID.
         elif media_type in ['playlist']:
@@ -592,7 +592,11 @@ class MeuralEntity(MediaPlayerEntity):
             return response
 
         elif media_source.is_media_source_id(media_content_id) or media_content_type=="localmediasource":
-            response = await media_source.async_browse_media(self.hass, media_content_id)
+            kwargs = {}
+            if MAJOR_VERSION > 2022 or (MAJOR_VERSION == 2022 and MINOR_VERSION >= 2):
+                kwargs['content_filter'] = lambda item: item.media_content_type in ('image/jpg', 'image/png', 'image/jpeg')
+
+            response = await media_source.async_browse_media(self.hass, media_content_id, **kwargs)
             return response
 
         elif media_content_type=="meuralplaylists":
