@@ -1,5 +1,6 @@
 """The Meural integration."""
 import asyncio
+import logging
 
 import voluptuous as vol
 
@@ -9,6 +10,8 @@ from homeassistant.core import HomeAssistant
 from .const import DOMAIN
 from . import pymeural
 
+_LOGGER = logging.getLogger(__name__)
+
 CONFIG_SCHEMA = vol.Schema({DOMAIN: vol.Schema({})}, extra=vol.ALLOW_EXTRA)
 
 PLATFORMS = ["media_player"]
@@ -16,14 +19,16 @@ PLATFORMS = ["media_player"]
 
 async def async_setup(hass: HomeAssistant, config: dict):
     """Set up the Meural component."""
+    _LOGGER.info("Meural: init.py async_setup")
     hass.data.setdefault(DOMAIN, {})
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up Meural from a config entry."""
+    _LOGGER.info("Meural: init.py async_setup_entry")
     if "password" not in entry.data:
-        _LOGGER.warning("Authentication changed. Please set up Meural again")
+        _LOGGER.error("Meural: Authentication has changed. Please set up Meural again.")
         return False
     hass.data[DOMAIN][entry.entry_id] = pymeural.PyMeural(
         entry.data["email"],
@@ -41,6 +46,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Unload a config entry."""
+    _LOGGER.info("Meural: init.py async_unload_entry")
     unload_ok = all(
         await asyncio.gather(
             *[

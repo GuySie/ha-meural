@@ -21,6 +21,7 @@ async def validate_input(hass: core.HomeAssistant, data):
 
     Data has the keys from DATA_SCHEMA with values provided by the user.
     """
+    _LOGGER.info("Meural: config_flow.py validate_input")
     session = hass.helpers.aiohttp_client.async_get_clientsession()
     try:
         await pymeural.authenticate(session, data["email"], data["password"])
@@ -34,6 +35,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
 
     async def async_step_user(self, user_input=None):
+        _LOGGER.info("Meural: config_flow.py async_step_user")
         """Handle the initial step."""
         errors = {}
         if user_input is not None:
@@ -53,7 +55,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
             except Exception:  # pylint: disable=broad-except
-                _LOGGER.exception("Unexpected exception")
+                _LOGGER.exception("Meural: Unexpected exception")
                 errors["base"] = "unknown"
 
         return self.async_show_form(
