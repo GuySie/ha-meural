@@ -1,10 +1,13 @@
 import asyncio
 import logging
 import json
+from datetime import datetime
 
 from typing import Dict
 import aiohttp
 import async_timeout
+
+from .util import snake_case
 
 from aiohttp.client_exceptions import ClientResponseError
 
@@ -12,7 +15,7 @@ from homeassistant.exceptions import HomeAssistantError
 
 _LOGGER = logging.getLogger(__name__)
 
-BASE_URL = "https://api.meural.com/v0/"
+BASE_URL = "https://api.meural.com/v1/"
 
 
 async def authenticate(
@@ -50,26 +53,30 @@ class PyMeural:
         self.token = token
         self.token_update_callback = token_update_callback
 
-    async def request(self, method, path, data=None) -> Dict:
+    async def request(self, method, path, data=None, data_key=None) -> Dict:
         fetched_new_token = self.token is None
         if self.token == None:
             await self.get_new_token()
         url = f"{BASE_URL}{path}"
         kwargs = {}
         if data:
-            if method == "get":
+            if data_key == "data":
+                kwargs["data"] = data
+            elif method == "get":
                 kwargs["query"] = data
             else:
                 kwargs["json"] = data
+        headers = {
+            "Authorization": f"Token {self.token}",
+            "x-meural-api-version": "3",
+        }
+
         with async_timeout.timeout(10):
             try:
                 resp = await self.session.request(
                     method,
                     url,
-                    headers={
-                        "Authorization": f"Token {self.token}",
-                        "x-meural-api-version": "3",
-                    },
+                    headers=headers,
                     raise_for_status=True,
                     **kwargs,
                 )
@@ -79,14 +86,16 @@ class PyMeural:
                 # If a new token was just fetched and it fails again, just raise
                 if fetched_new_token:
                     raise
-                _LOGGER.info('Meural: Sending Request failed. Re-Authenticating')
+                _LOGGER.info(
+                    'Meural: Sending Request failed. Re-Authenticating')
                 self.token = None
                 return await self.request(method, path, data)
             except Exception as err:
-                _LOGGER.error('Meural: Sending Request failed. Raising: %s' %err)
+                _LOGGER.error(
+                    'Meural: Sending Request failed. Raising: %s' % err)
                 raise
         response = await resp.json()
-        return response["data"]
+        return response["data"] if response != None else None
 
     async def get_new_token(self):
         self.token = await authenticate(self.session, self.username, self.password)
@@ -127,6 +136,87 @@ class PyMeural:
 
     async def get_item(self, item_id):
         return await self.request("get", f"items/{item_id}")
+
+    async def update_content(self, id, name=None, author=None, description=None, medium=None, year=None):
+        _LOGGER.info(f"Meural: Updating postcard. Id is {id}")
+
+        now = datetime.now()
+        dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+
+        name = "Homeassistant Preview Image" if name == None else name
+        author = "Homeassistant" if author == None else author
+        description = "Preview Image from Home Assistant Meural component" if description == None else description
+        medium = "Photo" if medium == None else medium
+        year = dt_string if year == None else str(year)
+
+        data = aiohttp.FormData()
+        data.add_field("name", name)
+        data.add_field("author", author)
+        data.add_field("description", description)
+        data.add_field("medium", medium)
+        data.add_field("year", year)
+
+        response = await self.request("put", f"items/{id}",
+                                      data=data, data_key="data")
+
+        _LOGGER.info(f'Meural: Updating postcard. {id} updated')
+        return response
+
+    async def upload_content(self, url, content_type, name):
+        # photo uploads are done doing a multipart/form-data form
+        # with key 'image' or 'video' and value being the image/video data
+
+        _LOGGER.info('Meural: Sending postcard. URL is %s' % (url))
+        name = "homeassistant-preview-image.jpg" if name == None else snake_case(
+            name) + '.jpg'
+        with async_timeout.timeout(10):
+            response = await self.session.get(url)
+            content = await response.read()
+        _LOGGER.info(
+            'Meural: Sending postcard. Downloaded %d bytes of image' % (len(content)))
+
+        data = aiohttp.FormData()
+
+        field_name = 'image'
+        if not (content_type == 'image/jpg' or content_type == 'image/jpeg'):
+            field_name = 'video'
+        data.add_field(field_name, content, filename=name,
+                       content_type=content_type)
+
+        response = await self.request("post", f"items",
+                                      data=data, data_key="data")
+
+        _LOGGER.info('Meural: Sending postcard. %s uploaded' % (
+            field_name))
+        return response
+
+    async def preview_item(self, device_id, item_id):
+        return await self.request("post", f"devices/{device_id}/preview/{item_id}")
+
+    async def delete_item(self, item_id):
+        return await self.request("delete", f"items/{item_id}")
+
+    async def send_postcard_cloud(self, device, url, content_type, name, author, description, medium, year):
+        _LOGGER.info('Meural device %s: Uploading content. URL is %s' % (
+            device['alias'], url))
+        response = await self.upload_content(url, content_type=content_type, name=name)
+
+        item_id = response["id"]
+        response = await self.update_content(id=item_id, name=name, author=author, description=description, medium=medium, year=year)
+
+        _LOGGER.info('Meural device %s: Sending postcard. Item Id: %s' % (
+            device['alias'], item_id))
+        response = await self.preview_item(device_id=device["id"], item_id=item_id)
+        _LOGGER.info('Meural device %s: Sending postcard. Sent for preview: %s' % (
+            device['alias'], item_id))
+
+        await asyncio.sleep(120)
+
+        response = await self.delete_item(item_id=item_id)
+        _LOGGER.info('Meural device %s: Sending postcard. Deleted the item: %s' % (
+            device['alias'], item_id))
+        return response
+
 
 class LocalMeural:
     def __init__(self, device, session: aiohttp.ClientSession):
@@ -234,19 +324,20 @@ class LocalMeural:
         data = aiohttp.FormData()
         data.add_field('photo', image, content_type=content_type)
         response = await self.session.post(f"http://{self.ip}/remote/postcard",
-            data=data)
+                                           data=data)
         _LOGGER.info('Meural device %s: Sending postcard. Response: %s' % (
             self.device['alias'], response))
         text = await response.text()
 
         r = json.loads(text)
         _LOGGER.info('Meural device %s: Sending postcard. Image uploaded, status: %s, response: %s' % (
-                self.device['alias'], r['status'], r['response']))
+            self.device['alias'], r['status'], r['response']))
         if r['status'] != 'pass':
             _LOGGER.error('Meural device %s: Sending postcard. Could not upload, response: %s' % (
                 self.device['alias'], r['response']))
 
         return response
+
 
 class CannotConnect(HomeAssistantError):
     """Error to indicate we cannot connect."""
@@ -254,6 +345,7 @@ class CannotConnect(HomeAssistantError):
 
 class InvalidAuth(HomeAssistantError):
     """Error to indicate there is invalid auth."""
+
 
 class DeviceTurnedOff(HomeAssistantError):
     """Error to indicate device turned off or not connected to the network."""
