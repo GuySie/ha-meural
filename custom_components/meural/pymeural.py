@@ -3,14 +3,12 @@ import logging
 import json
 
 from typing import Dict
-
 import aiohttp
 import async_timeout
 
 from aiohttp.client_exceptions import ClientResponseError
 
-
-from config_flow import CannotConnect, InvalidAuth, DeviceTurnedOff
+from homeassistant.exceptions import HomeAssistantError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -248,3 +246,13 @@ class LocalMeural:
                 self.device['alias'], r['response']))
 
         return response
+
+class CannotConnect(HomeAssistantError):
+    """Error to indicate we cannot connect."""
+
+
+class InvalidAuth(HomeAssistantError):
+    """Error to indicate there is invalid auth."""
+
+class DeviceTurnedOff(HomeAssistantError):
+    """Error to indicate device turned off or not connected to the network."""

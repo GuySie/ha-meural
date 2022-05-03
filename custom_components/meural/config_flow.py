@@ -13,7 +13,6 @@ _LOGGER = logging.getLogger(__name__)
 
 DATA_SCHEMA = vol.Schema({"email": str, "password": str})
 
-
 async def validate_input(hass: core.HomeAssistant, data):
     """Validate the user input allows us to connect.
 
@@ -44,9 +43,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         "token": token
                     },
                 )
-            except CannotConnect:
+            except pymeural.CannotConnect:
                 errors["base"] = "cannot_connect"
-            except InvalidAuth:
+                raise
+            except pymeural.InvalidAuth:
                 errors["base"] = "invalid_auth"
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
@@ -55,13 +55,3 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user", data_schema=DATA_SCHEMA, errors=errors
         )
-
-class CannotConnect(exceptions.HomeAssistantError):
-    """Error to indicate we cannot connect."""
-
-
-class InvalidAuth(exceptions.HomeAssistantError):
-    """Error to indicate there is invalid auth."""
-
-class DeviceTurnedOff(exceptions.HomeAssistantError):
-    """Error to indicate device turned off or not connected to the network."""
