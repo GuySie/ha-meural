@@ -1,7 +1,4 @@
 """Config flow for Meural integration."""
-import asyncio
-from lib2to3.pgen2 import token
-import aiohttp
 import logging
 
 import voluptuous as vol
@@ -23,12 +20,7 @@ async def validate_input(hass: core.HomeAssistant, data):
     Data has the keys from DATA_SCHEMA with values provided by the user.
     """
     session = hass.helpers.aiohttp_client.async_get_clientsession()
-    try:
-        return await pymeural.authenticate(session, data["email"], data["password"])
-    except (aiohttp.ClientError, asyncio.TimeoutError):
-        raise CannotConnect
-
-
+    return await pymeural.authenticate(session, data["email"], data["password"])
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Meural."""
@@ -71,3 +63,5 @@ class CannotConnect(exceptions.HomeAssistantError):
 class InvalidAuth(exceptions.HomeAssistantError):
     """Error to indicate there is invalid auth."""
 
+class DeviceTurnedOff(exceptions.HomeAssistantError):
+    """Error to indicate device turned off or not connected to the network."""

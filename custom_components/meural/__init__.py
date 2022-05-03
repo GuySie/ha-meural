@@ -30,7 +30,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         return False
 
     def token_update_callback(token):
-        _LOGGER.warning("Token changed. Updating config entry.")
+        _LOGGER.debug("Token changed. Updating config entry.")
         hass.config_entries.async_update_entry(entry, data={**entry.data, "token": token})
 
     hass.data[DOMAIN][entry.entry_id] = pymeural.PyMeural(

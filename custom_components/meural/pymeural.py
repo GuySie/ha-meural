@@ -1,7 +1,6 @@
+import asyncio
 import logging
 import json
-
-from functools import partial
 
 from typing import Dict
 
@@ -10,7 +9,8 @@ import async_timeout
 
 from aiohttp.client_exceptions import ClientResponseError
 
-from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntry
+
+from config_flow import CannotConnect, InvalidAuth, DeviceTurnedOff
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,13 +21,23 @@ async def authenticate(
     session: aiohttp.ClientSession, username: str, password: str
 ) -> str:
     """Authenticate and return a token."""
-    with async_timeout.timeout(10):
-        resp = await session.request(
-            "post",
-            BASE_URL + "authenticate",
-            data={"username": username, "password": password},
-            raise_for_status=True,
-        )
+    try:
+        with async_timeout.timeout(10):
+            resp = await session.request(
+                "post",
+                BASE_URL + "authenticate",
+                data={"username": username, "password": password},
+                raise_for_status=True,
+            )
+    except ClientResponseError as err:
+        _LOGGER.info('Meural: authentication failed: %s', err)
+        if err.status == 401:
+            raise InvalidAuth
+        else:
+            raise CannotConnect
+    except asyncio.TimeoutError:
+        _LOGGER.info('Meural: authentication failed: %s', err)
+        raise CannotConnect
 
     data = await resp.json()
     return data["token"]
@@ -74,7 +84,6 @@ class PyMeural:
                 self.token = None
                 return await self.request(method, path, data)
             except Exception as err:
-                # TODO: Find what exception is thrown when device is powered-off and throw custom DeviceTurnedOff exception
                 _LOGGER.error('Meural: Sending Request failed. Raising: %s' %err)
                 raise
         response = await resp.json()
@@ -134,15 +143,18 @@ class LocalMeural:
                 kwargs["query"] = data
             else:
                 kwargs["data"] = data
-        with async_timeout.timeout(10):
-            resp = await self.session.request(
-                method,
-                url,
-                raise_for_status=True,
-                **kwargs,
-            )
-        response = await resp.json(content_type=None)
-        return response["response"]
+        try:
+            with async_timeout.timeout(10):
+                resp = await self.session.request(
+                    method,
+                    url,
+                    raise_for_status=True,
+                    **kwargs,
+                )
+            response = await resp.json(content_type=None)
+            return response["response"]
+        except aiohttp.client_exceptions.ClientConnectorError:
+            raise DeviceTurnedOff
 
     async def send_key_right(self):
         return await self.request("get", f"control_command/set_key/right/")
