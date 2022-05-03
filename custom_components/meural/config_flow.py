@@ -1,5 +1,6 @@
 """Config flow for Meural integration."""
 import asyncio
+from lib2to3.pgen2 import token
 import aiohttp
 import logging
 
@@ -23,7 +24,7 @@ async def validate_input(hass: core.HomeAssistant, data):
     """
     session = hass.helpers.aiohttp_client.async_get_clientsession()
     try:
-        await pymeural.authenticate(session, data["email"], data["password"])
+        return await pymeural.authenticate(session, data["email"], data["password"])
     except (aiohttp.ClientError, asyncio.TimeoutError):
         raise CannotConnect
 
@@ -40,14 +41,15 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             try:
-                await validate_input(self.hass, user_input)
+                token = await validate_input(self.hass, user_input)
 
                 await self.async_set_unique_id(user_input["email"], raise_on_progress=False)
                 return self.async_create_entry(
                     title=user_input["email"],
                     data={
                         "email": user_input["email"],
-                        "password": user_input["password"]
+                        "password": user_input["password"],
+                        "token": token
                     },
                 )
             except CannotConnect:

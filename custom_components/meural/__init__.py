@@ -26,9 +26,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER.warning("Authentication changed. Please set up Meural again")
         return False
 
+    def token_update_callback(token):
+        hass.config_entries.async_update_entry(entry, data={**entry.data, "token": token})
+
     hass.data[DOMAIN][entry.entry_id] = pymeural.PyMeural(
         entry.data["email"],
         entry.data["password"],
+        entry.data["token"],
+        token_update_callback,
         hass.helpers.aiohttp_client.async_get_clientsession()
     )
 

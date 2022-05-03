@@ -34,11 +34,12 @@ async def authenticate(
 
 
 class PyMeural:
-    def __init__(self, username, password, session: aiohttp.ClientSession):
+    def __init__(self, username, password, token, token_update_callback, session: aiohttp.ClientSession):
         self.username = username
         self.password = password
         self.session = session
-        self.token = None
+        self.token = token
+        self.token_update_callback = token_update_callback
 
     async def request(self, method, path, data=None) -> Dict:
         fetched_new_token = self.token is None
@@ -64,6 +65,8 @@ class PyMeural:
                     **kwargs,
                 )
             except ClientResponseError as err:
+                if err.status != 401:
+                    raise
                 # If a new token was just fetched and it fails again, just raise
                 if fetched_new_token:
                     raise
@@ -71,13 +74,15 @@ class PyMeural:
                 self.token = None
                 return self.request(method, path, data)
             except Exception as err:
-                _LOGGER.warning('Meural: Sending Request failed. Ignoring: %s' %err)
-                return
+                # TODO: Find what exception is thrown when device is powered-off and throw custom DeviceTurnedOff exception
+                _LOGGER.error('Meural: Sending Request failed. Raising: %s' %err)
+                raise
         response = await resp.json()
         return response["data"]
 
     async def get_new_token(self):
         self.token = await authenticate(self.session, self.username, self.password)
+        self.token_update_callback(self.token)
 
     async def get_user(self):
         return await self.request("get", "user")
