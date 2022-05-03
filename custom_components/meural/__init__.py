@@ -1,5 +1,6 @@
 """The Meural integration."""
 import asyncio
+import logging
 
 import voluptuous as vol
 
@@ -8,6 +9,8 @@ from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
 from . import pymeural
+
+_LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = vol.Schema({DOMAIN: vol.Schema({})}, extra=vol.ALLOW_EXTRA)
 
@@ -27,6 +30,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         return False
 
     def token_update_callback(token):
+        _LOGGER.warning("Token changed. Updating config entry.")
         hass.config_entries.async_update_entry(entry, data={**entry.data, "token": token})
 
     hass.data[DOMAIN][entry.entry_id] = pymeural.PyMeural(

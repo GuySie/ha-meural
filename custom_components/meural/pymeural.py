@@ -72,7 +72,7 @@ class PyMeural:
                     raise
                 _LOGGER.info('Meural: Sending Request failed. Re-Authenticating.')
                 self.token = None
-                return self.request(method, path, data)
+                return await self.request(method, path, data)
             except Exception as err:
                 # TODO: Find what exception is thrown when device is powered-off and throw custom DeviceTurnedOff exception
                 _LOGGER.error('Meural: Sending Request failed. Raising: %s' %err)
