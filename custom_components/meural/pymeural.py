@@ -1,12 +1,14 @@
+import asyncio
 import logging
 import json
 
-from functools import partial
-
 from typing import Dict
-
 import aiohttp
 import async_timeout
+
+from aiohttp.client_exceptions import ClientResponseError
+
+from homeassistant.exceptions import HomeAssistantError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -17,24 +19,40 @@ async def authenticate(
     session: aiohttp.ClientSession, username: str, password: str
 ) -> str:
     """Authenticate and return a token."""
-    with async_timeout.timeout(10):
-        resp = await session.request(
-            "post",
-            BASE_URL + "authenticate",
-            data={"username": username, "password": password},
-            raise_for_status=True,
-        )
+    try:
+        with async_timeout.timeout(10):
+            resp = await session.request(
+                "post",
+                BASE_URL + "authenticate",
+                data={"username": username, "password": password},
+                raise_for_status=True,
+            )
+    except ClientResponseError as err:
+        _LOGGER.info('Meural: authentication failed: %s', err)
+        if err.status == 401:
+            raise InvalidAuth
+        else:
+            raise CannotConnect
+    except asyncio.TimeoutError:
+        _LOGGER.info('Meural: authentication failed: %s', err)
+        raise CannotConnect
 
     data = await resp.json()
     return data["token"]
 
 
 class PyMeural:
-    def __init__(self, token, session: aiohttp.ClientSession):
-        self.token = token
+    def __init__(self, username, password, token, token_update_callback, session: aiohttp.ClientSession):
+        self.username = username
+        self.password = password
         self.session = session
+        self.token = token
+        self.token_update_callback = token_update_callback
 
     async def request(self, method, path, data=None) -> Dict:
+        fetched_new_token = self.token is None
+        if self.token == None:
+            await self.get_new_token()
         url = f"{BASE_URL}{path}"
         kwargs = {}
         if data:
@@ -43,18 +61,35 @@ class PyMeural:
             else:
                 kwargs["json"] = data
         with async_timeout.timeout(10):
-            resp = await self.session.request(
-                method,
-                url,
-                headers={
-                    "Authorization": f"Token {self.token}",
-                    "x-meural-api-version": "3",
-                },
-                raise_for_status=True,
-                **kwargs,
-            )
+            try:
+                resp = await self.session.request(
+                    method,
+                    url,
+                    headers={
+                        "Authorization": f"Token {self.token}",
+                        "x-meural-api-version": "3",
+                    },
+                    raise_for_status=True,
+                    **kwargs,
+                )
+            except ClientResponseError as err:
+                if err.status != 401:
+                    raise
+                # If a new token was just fetched and it fails again, just raise
+                if fetched_new_token:
+                    raise
+                _LOGGER.info('Meural: Sending Request failed. Re-Authenticating.')
+                self.token = None
+                return await self.request(method, path, data)
+            except Exception as err:
+                _LOGGER.error('Meural: Sending Request failed. Raising: %s' %err)
+                raise
         response = await resp.json()
         return response["data"]
+
+    async def get_new_token(self):
+        self.token = await authenticate(self.session, self.username, self.password)
+        self.token_update_callback(self.token)
 
     async def get_user(self):
         return await self.request("get", "user")
@@ -106,15 +141,18 @@ class LocalMeural:
                 kwargs["query"] = data
             else:
                 kwargs["data"] = data
-        with async_timeout.timeout(10):
-            resp = await self.session.request(
-                method,
-                url,
-                raise_for_status=True,
-                **kwargs,
-            )
-        response = await resp.json(content_type=None)
-        return response["response"]
+        try:
+            with async_timeout.timeout(10):
+                resp = await self.session.request(
+                    method,
+                    url,
+                    raise_for_status=True,
+                    **kwargs,
+                )
+            response = await resp.json(content_type=None)
+            return response["response"]
+        except aiohttp.client_exceptions.ClientConnectorError:
+            raise DeviceTurnedOff
 
     async def send_key_right(self):
         return await self.request("get", f"control_command/set_key/right/")
@@ -208,3 +246,13 @@ class LocalMeural:
                 self.device['alias'], r['response']))
 
         return response
+
+class CannotConnect(HomeAssistantError):
+    """Error to indicate we cannot connect."""
+
+
+class InvalidAuth(HomeAssistantError):
+    """Error to indicate there is invalid auth."""
+
+class DeviceTurnedOff(HomeAssistantError):
+    """Error to indicate device turned off or not connected to the network."""
