@@ -26,16 +26,7 @@ from homeassistant.components.media_player.const import (
     MEDIA_CLASS_DIRECTORY,
     MEDIA_TYPE_IMAGE,
     MEDIA_TYPE_PLAYLIST,
-    SUPPORT_BROWSE_MEDIA,
-    SUPPORT_SELECT_SOURCE,
-    SUPPORT_NEXT_TRACK,
-    SUPPORT_PAUSE,
-    SUPPORT_PLAY,
-    SUPPORT_PLAY_MEDIA,
-    SUPPORT_PREVIOUS_TRACK,
-    SUPPORT_SHUFFLE_SET,
-    SUPPORT_TURN_OFF,
-    SUPPORT_TURN_ON,
+    MediaPlayerEntityFeature,
 )
 
 from .const import DOMAIN
@@ -44,16 +35,16 @@ from .pymeural import LocalMeural
 _LOGGER = logging.getLogger(__name__)
 
 MEURAL_SUPPORT = (
-    SUPPORT_BROWSE_MEDIA
-    | SUPPORT_SELECT_SOURCE
-    | SUPPORT_NEXT_TRACK
-    | SUPPORT_PAUSE
-    | SUPPORT_PLAY
-    | SUPPORT_PLAY_MEDIA
-    | SUPPORT_PREVIOUS_TRACK
-    | SUPPORT_SHUFFLE_SET
-    | SUPPORT_TURN_OFF
-    | SUPPORT_TURN_ON
+    MediaPlayerEntityFeature.BROWSE_MEDIA
+    | MediaPlayerEntityFeature.SELECT_SOURCE
+    | MediaPlayerEntityFeature.NEXT_TRACK
+    | MediaPlayerEntityFeature.PAUSE
+    | MediaPlayerEntityFeature.PLAY
+    | MediaPlayerEntityFeature.PLAY_MEDIA
+    | MediaPlayerEntityFeature.PREVIOUS_TRACK
+    | MediaPlayerEntityFeature.SHUFFLE_SET
+    | MediaPlayerEntityFeature.TURN_OFF
+    | MediaPlayerEntityFeature.TURN_ON
 )
 
 async def async_setup_entry(hass, config_entry, async_add_entities):

@@ -19,6 +19,7 @@ async def authenticate(
     session: aiohttp.ClientSession, username: str, password: str
 ) -> str:
     """Authenticate and return a token."""
+    _LOGGER.info('Meural: Authenticating')
     try:
         with async_timeout.timeout(10):
             resp = await session.request(
@@ -28,13 +29,13 @@ async def authenticate(
                 raise_for_status=True,
             )
     except ClientResponseError as err:
-        _LOGGER.info('Meural: authentication failed: %s', err)
+        _LOGGER.info('Meural: Authentication failed: %s', err)
         if err.status == 401:
             raise InvalidAuth
         else:
             raise CannotConnect
     except asyncio.TimeoutError:
-        _LOGGER.info('Meural: authentication failed: %s', err)
+        _LOGGER.info('Meural: Authentication failed: %s', err)
         raise CannotConnect
 
     data = await resp.json()
@@ -78,7 +79,7 @@ class PyMeural:
                 # If a new token was just fetched and it fails again, just raise
                 if fetched_new_token:
                     raise
-                _LOGGER.info('Meural: Sending Request failed. Re-Authenticating.')
+                _LOGGER.info('Meural: Sending Request failed. Re-Authenticating')
                 self.token = None
                 return await self.request(method, path, data)
             except Exception as err:

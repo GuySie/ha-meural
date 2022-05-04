@@ -3,7 +3,7 @@
 
 **Integration for Meural Canvas digital art frame in Home Assistant**  
 
-The [NETGEAR Meural Canvas](https://meural.netgear.com/) is a digital art frame with both a local interface and a cloud API.  
+The [NETGEAR Meural Canvas](https://www.netgear.com/home/digital-art-canvas/) is a digital art frame with both a local interface and a cloud API.  
 [Home Assistant](https://www.home-assistant.io/) is an open source home automation package that puts local control and privacy first.  
 This integration leverages Meural's API and local interface to control the Meural Canvas as a media player in Home Assistant.  
 
@@ -21,7 +21,7 @@ Copy the `meural` folder inside `custom_components` to your Home Assistant's `cu
 Restart Home Assistant after copying.  
 
 ### Setup
-After restarting go to *Configuration*, *Integrations*, click the + to add a new integration and find the Meural integration to set up.  
+After restarting go to *Configuration*, *Devices & Services*, *Integrations*, click the + to add a new integration and find the Meural integration to set up.  
 
 Log in with your NETGEAR account.  
 
@@ -29,7 +29,7 @@ The integration will detect all Canvas devices registered to your account. Each 
 
 **Note 1:** This integration does not yet support NETGEAR's two-step verification method of logging in. Please use the standard login and password method to use this integration.  
 
-**Note 2:** When you log in the integration gets an authentication token from the Meural servers. The integration currently does not detect when this authentication token expires. Tokens appear to live for several months on average. If your Canvas starts behaving abnormally in Home Assistant, please delete this integration in *Configuration*, *Integrations*, and then re-add it to log in again and refresh your authentication token.  
+**Note 2:** If you are upgrading from a version of HA-meural prior to v1.0.0, you have to delete this integration in *Configuration*, *Devices & Services*, *Integrations*, and then re-add it to log in again. This will set up the new configuration entries. Prior to v1.0.0 your Canvas devices would become unavailable once the authentication token expires, but from v1.0.0 onwards it will detect when this happens and re-authenticate automatically.
 
 ## Integration
 The integration supports built-in media player service calls to pause, play, play a specific item or playlist/album, go to the next/previous track (artwork), select a source (playlist/album), set shuffle mode, and turn on or turn off.  
@@ -81,7 +81,7 @@ The integration does *not* support offering the artwork displayed on the Canvas 
 This integration supports the [use of SD card folders on your Canvas](https://kb.netgear.com/000060777/Can-I-use-a-micro-SD-card-to-show-my-own-images-or-videos-on-a-Meural-Canvas). The Canvas can display images from a maximum of 4 local folders named `meural1`, `meural2`, `meural3` and `meural4`. You will be able to switch between these folders, select them in the Media Browser, and go to next or previous images in them using the normal controls. However, no additional artwork information is made available by the Canvas for these images and the integration will be unable to display details such as artwork name or thumbnail.  
 
 ### Google Assistant
-Meural currently only supports Alexa voice commands for the Canvas. However, if your Home Assistant supports Google Home / Google Assistant - either [configured manually](https://www.home-assistant.io/integrations/google_assistant/) or via [Nabu Casa](https://www.nabucasa.com/config/google_assistant/) - you can expose a Canvas entity and control it via Google. 
+Meural currently only supports Alexa voice commands. However, if your Home Assistant supports Google Home / Google Assistant - either [configured manually](https://www.home-assistant.io/integrations/google_assistant/) or via [Nabu Casa](https://www.nabucasa.com/config/google_assistant/) - you can expose a Canvas entity and control it via Google. 
 Media players in Home Assistant support OnOff, Modes, TransportControl and MediaState traits for Google Assistant. This means you can turn the Canvas on or off, select different playlist/albums for the Canvas to display, and perform basic controls like next/previous artwork, pause/play or enabling shuffle - though oddly Google does not support disabling shuffle.  
 To make it easier to command your Canvas change the name to something you can pronounce and Google can recognize as a word - e.g. if you want to call your Canvas 'Meural', spell it 'Mural'.  
 
@@ -156,4 +156,4 @@ The available calls in this javascript are:
 `/remote/postcard/`  
 
 ## Thanks
-The first version of this integration was built by [@balloob](https://github.com/balloob) - many, many thanks to him. Blame [@guysie](https://github.com/guysie) for the code added afterwards. Thanks to [@thomasvs](https://github.com/thomasvs) for contributing the code to preview images!
+The first version of this integration was built by [@balloob](https://github.com/balloob) - many, many thanks to him. Blame [@guysie](https://github.com/guysie) for the code added afterwards. Thanks to [@thomasvs](https://github.com/thomasvs) for contributing the code to preview images and [@sanghviharshit](https://github.com/sanghviharshit) for the re-authentication code!
