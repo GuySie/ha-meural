@@ -65,7 +65,7 @@ preview_image_cloud:
       description: Medium for the media item
       example: Photography
     year:
-      description: Year
+      description: Year. This needs to be a date or just the year. Other format doesn't work
       example: 2022/05/01
 
 set_device_option:

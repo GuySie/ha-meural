@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import json
-from datetime import datetime
+from datetime import date
 
 from typing import Dict
 import aiohttp
@@ -140,14 +140,12 @@ class PyMeural:
     async def update_content(self, id, name=None, author=None, description=None, medium=None, year=None):
         _LOGGER.info(f"Meural: Updating postcard. Id is {id}")
 
-        now = datetime.now()
-        dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
-
         name = "Homeassistant Preview Image" if name == None else name
         author = "Homeassistant" if author == None else author
         description = "Preview Image from Home Assistant Meural component" if description == None else description
         medium = "Photo" if medium == None else medium
-        year = dt_string if year == None else str(year)
+        # the year has to be a date. other format doesn't work
+        year = date.today() if year == None else str(year)
 
         data = aiohttp.FormData()
         data.add_field("name", name)
@@ -177,17 +175,13 @@ class PyMeural:
 
         data = aiohttp.FormData()
 
-        field_name = 'image'
-        if not (content_type == 'image/jpg' or content_type == 'image/jpeg'):
-            field_name = 'video'
-        data.add_field(field_name, content, filename=name,
+        data.add_field('image', content, filename=name,
                        content_type=content_type)
 
         response = await self.request("post", f"items",
                                       data=data, data_key="data")
 
-        _LOGGER.info('Meural: Sending postcard. %s uploaded' % (
-            field_name))
+        _LOGGER.info('Meural: Sending postcard. Image uploaded')
         return response
 
     async def preview_item(self, device_id, item_id):
