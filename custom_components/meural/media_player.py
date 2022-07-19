@@ -452,11 +452,17 @@ class MeuralEntity(MediaPlayerEntity):
 
     async def async_media_previous_track(self):
         """Send previous image command."""
-        await self.local_meural.send_key_left()
+        if self._meural_device["gestureFlip"] == True:
+            await self.local_meural.send_key_right()
+        else:
+            await self.local_meural.send_key_left()
 
     async def async_media_next_track(self):
         """Send next image command."""
-        await self.local_meural.send_key_right()
+        if self._meural_device["gestureFlip"] == True:
+            await self.local_meural.send_key_left()
+        else:
+            await self.local_meural.send_key_right()
 
     async def async_turn_on(self):
         """Resume Meural frame display."""
