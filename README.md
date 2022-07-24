@@ -11,7 +11,7 @@ This integration leverages Meural's API and local interface to control the Meura
 
 ## Installation
 ### HACS Install
-Go to HACS (Community). Select *Integrations* and click the + to add a new integration repository. Search for `HA-meural` to find this repository, select it and install.  
+Go to HACS (Community). Select *Integrations* and click *+ Explore & Download Repositories* in the bottom right to add a new integration repository. Search for `HA-meural` to find this repository, select it and install.  
 
 Restart Home Assistant after installation.
 
@@ -21,7 +21,7 @@ Copy the `meural` folder inside `custom_components` to your Home Assistant's `cu
 Restart Home Assistant after copying.  
 
 ### Setup
-After restarting go to *Configuration*, *Devices & Services*, *Integrations*, click the + to add a new integration and find the Meural integration to set up.  
+After restarting go to *Settings*, *Devices & Services*, *Integrations*, and click *+ Add Integration* in the bottom right to add a new integration and find the Meural integration to set up.  
 
 Log in with your NETGEAR account.  
 
@@ -29,7 +29,7 @@ The integration will detect all Canvas devices registered to your account. Each 
 
 **Note 1:** This integration does not yet support NETGEAR's two-step verification method of logging in. Please use the standard login and password method to use this integration.  
 
-**Note 2:** If you are upgrading from a version of HA-meural prior to v1.0.0, you have to delete this integration in *Configuration*, *Devices & Services*, *Integrations*, and then re-add it to log in again. This will set up the new configuration entries. Prior to v1.0.0 your Canvas devices would become unavailable once the authentication token expires, but from v1.0.0 onwards it will detect when this happens and re-authenticate automatically.
+**Note 2:** If you are upgrading from a version of HA-meural prior to v1.0.0, you have to delete this integration in *Settings*, *Devices & Services*, *Integrations*, and then re-add it to log in again. This will set up the new configuration entries. Prior to v1.0.0 your Canvas devices would become unavailable once the authentication token expires, but from v1.0.0 onwards it will detect when this happens and re-authenticate automatically.
 
 ## Integration
 The integration supports built-in media player service calls to pause, play, play a specific item or playlist/album, go to the next/previous track (artwork), select a source (playlist/album), set shuffle mode, and turn on or turn off.  
