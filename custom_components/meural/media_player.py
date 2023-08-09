@@ -86,6 +86,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             vol.Optional("description"): str,
             vol.Optional("medium"): str,
             vol.Optional("year"): str,
+            vol.Optional("duration"): int,
         },
         "async_preview_image_cloud",
     )
@@ -516,6 +517,7 @@ class MeuralEntity(MediaPlayerEntity):
             description = kwargs.get("description")
             medium = kwargs.get("medium")
             year = kwargs.get("year")
+            duration = kwargs.get("duration")
 
         if media_source.is_media_source_id(media_id):
             sourced_media = await media_source.async_resolve_media(self.hass, media_id)
@@ -588,11 +590,11 @@ class MeuralEntity(MediaPlayerEntity):
         else:
             _LOGGER.error("Meural device %s: Previewing image. Does not support media type %s", self.name, content_type)
 
-    async def async_preview_image_cloud(self, content_url, content_type, name=None, author=None, description=None, medium=None, year=None):
+    async def async_preview_image_cloud(self, content_url, content_type, name=None, author=None, description=None, medium=None, year=None, duration=None):
         """Preview image from URL."""
         if content_type in [ 'image/jpg', 'image/png', 'image/jpeg', 'image/gif' ]:
             _LOGGER.info("Meural device %s: Previewing image via meural cloud. Media type is %s, previewing image from %s", self.name, content_type, content_url)
-            await self.async_play_media(media_type=content_type, media_id=content_url, use_cloud=True, name=name, author=author, description=description, medium=medium, year=year)
+            await self.async_play_media(media_type=content_type, media_id=content_url, use_cloud=True, name=name, author=author, description=description, medium=medium, year=year, duration=duration)
         else:
             _LOGGER.error("Meural device %s: Previewing image. Does not support media type %s", self.name, content_type)
 

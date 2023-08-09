@@ -190,7 +190,7 @@ class PyMeural:
     async def delete_item(self, item_id):
         return await self.request("delete", f"items/{item_id}")
 
-    async def send_postcard_cloud(self, device, url, content_type, name, author, description, medium, year):
+    async def send_postcard_cloud(self, device, url, content_type, name, author, description, medium, year, duration):
         _LOGGER.info('Meural device %s: Uploading content. URL is %s' % (
             device['alias'], url))
         response = await self.upload_content(url, content_type=content_type, name=name)
@@ -204,13 +204,13 @@ class PyMeural:
         _LOGGER.info('Meural device %s: Sending postcard. Sent for preview: %s' % (
             device['alias'], item_id))
 
-        await asyncio.sleep(120)
+        duration = 60 if duration == None else duration
+        await asyncio.sleep(duration)
 
         response = await self.delete_item(item_id=item_id)
         _LOGGER.info('Meural device %s: Sending postcard. Deleted the item: %s' % (
             device['alias'], item_id))
         return response
-
 
 class LocalMeural:
     def __init__(self, device, session: aiohttp.ClientSession):
