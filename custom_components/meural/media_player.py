@@ -543,7 +543,7 @@ class MeuralEntity(MediaPlayerEntity):
                 media_id = f"{hass_url}{media_id}"
             _LOGGER.info("Meural device %s: Playing media. Media type is %s, previewing image from %s", self.name, media_type, media_id)
             if use_cloud:
-                await self.meural.send_postcard_cloud(self._meural_device, media_id, media_type, name, author, description, medium, year)
+                await self.meural.send_postcard_cloud(self._meural_device, media_id, media_type, name, author, description, medium, year, duration)
             else:
                 await self.local_meural.send_postcard(media_id, media_type)
 
@@ -556,7 +556,7 @@ class MeuralEntity(MediaPlayerEntity):
         if media_type in [ 'image/jpg', 'image/png', 'image/jpeg', 'image/gif' ]:
             _LOGGER.info("Meural device %s: Playing media. Media type is %s, previewing image from %s", self.name, media_type, media_id)
             if use_cloud:
-                await self.meural.send_postcard_cloud(self._meural_device, media_id, media_type, name, author, description, medium, year)
+                await self.meural.send_postcard_cloud(self._meural_device, media_id, media_type, name, author, description, medium, year, duration)
             else:
                 await self.local_meural.send_postcard(media_id, media_type)
 
