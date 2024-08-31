@@ -6,6 +6,7 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DOMAIN
 from . import pymeural
@@ -38,7 +39,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         entry.data["password"],
         entry.data["token"],
         token_update_callback,
-        hass.helpers.aiohttp_client.async_get_clientsession()
+        async_get_clientsession(hass)
     )
 
     for component in PLATFORMS:
