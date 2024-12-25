@@ -4,14 +4,16 @@
 **Integration for Meural Canvas digital art frame in Home Assistant**  
 
 The [NETGEAR Meural Canvas](https://www.netgear.com/home/digital-art-canvas/) is a digital art frame with both a local interface and a cloud API.  
+
 [Home Assistant](https://www.home-assistant.io/) is an open source home automation package that puts local control and privacy first.  
+
 This integration leverages Meural's API and local interface to control the Meural Canvas as a media player in Home Assistant.  
 
 ![Meural Canvas in Media Control card](https://raw.githubusercontent.com/GuySie/ha-meural/master/images/mediacontrolcard.png)
 
 ## Installation
 ### HACS Install
-Go to HACS (Community). Select *Integrations* and click *+ Explore & Download Repositories* in the bottom right to add a new integration repository. Search for `HA-meural` to find this repository, select it and install.  
+Go to the HACS interface. Search for `HA-meural` to find this repository, select it and install.  
 
 Restart Home Assistant after installation.
 
@@ -49,7 +51,7 @@ Set parameter `media_content_type` to `image/jpg` or `image/png`, depending on y
 2. Displays artwork hosted on the Meural servers on your Canvas.  
 Set parameter `media_content_type` to `item` and set parameter `media_content_id` to the item ID of the artwork you wish to display. You will only be able to play artwork that you have permission for, i.e. that you have uploaded yourself or that your current Meural membership gives you access to. If the artwork is not in the currently selected playlist or album, the Canvas will also switch to an *'All works'* playlist that contains all individual artwork you have played in this manner.  
 3. Displays a playlist/album that is already uploaded to your Canvas.  
-Set parameter `media_content_type` to `playlist` and parameter `media_content_id` to the gallery ID of the playlist or album that you wish to display. You will not be able to display a playlist or album that has not yet been sent to the Canvas through the Meural app or website. When typing in gallery IDs manually, please note that albums are represented by a gallery ID on your Canvas that is not the same as their album ID on the Meural servers. To find out the gallery ID on your canvas, browse to `http://MEURAL-LOCALIP/remote/get_galleries_json/` and locate the `id` tag next to the album or playlist name to use in the service call.
+Set parameter `media_content_type` to `playlist` and parameter `media_content_id` to the gallery ID of the playlist or album that you wish to display. You will not be able to display a playlist or album that has not yet been sent to the Canvas through the Meural app or website. When typing in gallery IDs manually, please note that albums are represented by a gallery ID on your Canvas that is not the same as their album ID on the Meural servers. To find out the gallery ID on your canvas, browse to `http://YOUR-CANVAS-IP/remote/get_galleries_json/` and locate the `id` tag next to the album or playlist name to use in the service call.
 
 ![Meural Canvas in entity settings](https://raw.githubusercontent.com/GuySie/ha-meural/master/images/entitysettings.png)
 
@@ -123,8 +125,8 @@ https://documenter.getpostman.com/view/1657302/RVnWjKUL
 ### Local Web Server
 Netgear refers to a 'remote controller' in their Meural support documentation:  
 https://kb.netgear.com/000060746/Can-I-control-the-Canvas-without-a-mobile-app-or-gesture-control-and-if-so-how  
-This 'remote controller' is a local web server on the Canvas device available at: `http://LOCALIP/remote/`  
-It runs on a javascript available at: `http://MEURAL-LOCALIP/static/remote.js`
+This 'remote controller' is a local web server on the Canvas device available at: `http://YOUR-CANVAS-IP/remote/`  
+It runs on a javascript available at: `http://YOUR-CANVAS-IP/static/remote.js`
 
 The available calls in this javascript are:  
 `/remote/identify/`  
