@@ -10,7 +10,7 @@
   "homekit": {},
   "dependencies": [],
   "after_dependencies": ["http", "media_source"],
-  "version": "1.1.1",
+  "version": "1.1.2",
   "codeowners": ["@guysie"],
   "iot_class": "cloud_polling"
 }
