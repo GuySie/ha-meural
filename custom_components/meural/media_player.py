@@ -445,10 +445,12 @@ class MeuralEntity(MediaPlayerEntity):
 
     async def async_select_source(self, source):
         """Select playlist to display."""
-        source = next((g["id"] for g in self._galleries if g["name"] == source), None)
-        if source is None:
+        playlist = next((g["id"] for g in self._galleries if g["name"] == source), None)
+        if playlist is None:
             _LOGGER.warning("Meural device %s: Selecting source. Source %s not found", self.name, source)
-        await self.local_meural.send_change_gallery(source)
+        else:
+            _LOGGER.info("Meural device %s: Selecting source. Playing gallery %s, ID %s", self.name, source, playlist)
+            await self.local_meural.send_change_gallery(playlist)
 
     async def async_media_previous_track(self):
         """Send previous image command."""
