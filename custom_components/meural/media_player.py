@@ -77,6 +77,22 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     )
 
     platform.async_register_entity_service(
+        "preview_image_cloud",
+        {
+            vol.Required("content_url"): str,
+            vol.Required("content_type"): str,
+            vol.Optional("name"): str,
+            vol.Optional("author"): str,
+            vol.Optional("description"): str,
+            vol.Optional("medium"): str,
+            vol.Optional("year"): str,
+            vol.Optional("duration"): int,
+        },
+        "async_preview_image_cloud",
+    )
+
+
+    platform.async_register_entity_service(
         "reset_brightness",
         {},
         "async_reset_brightness",
@@ -496,6 +512,15 @@ class MeuralEntity(MediaPlayerEntity):
 
     async def async_play_media(self, media_type, media_id, **kwargs):
         """Play media from media_source."""
+        use_cloud = kwargs.get("use_cloud", False)
+        if use_cloud:
+            name = kwargs.get("name")
+            author = kwargs.get("author")
+            description = kwargs.get("description")
+            medium = kwargs.get("medium")
+            year = kwargs.get("year")
+            duration = kwargs.get("duration")
+
         if media_source.is_media_source_id(media_id):
             sourced_media = await media_source.async_resolve_media(self.hass, media_id)
             media_type = sourced_media.mime_type
@@ -518,9 +543,11 @@ class MeuralEntity(MediaPlayerEntity):
                 # Prepend external URL.
                 hass_url = get_url(self.hass, allow_internal=True)
                 media_id = f"{hass_url}{media_id}"
-
             _LOGGER.info("Meural device %s: Playing media. Media type is %s, previewing image from %s", self.name, media_type, media_id)
-            await self.local_meural.send_postcard(media_id, media_type)
+            if use_cloud:
+                await self.meural.send_postcard_cloud(self._meural_device, media_id, media_type, name, author, description, medium, year, duration)
+            else:
+                await self.local_meural.send_postcard(media_id, media_type)
 
         # Play gallery (playlist or album) by ID.
         elif media_type in ['playlist']:
@@ -528,9 +555,12 @@ class MeuralEntity(MediaPlayerEntity):
             await self.local_meural.send_change_gallery(media_id)
 
         # "Preview image from URL.
-        elif media_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
+        if media_type in [ 'image/jpg', 'image/png', 'image/jpeg', 'image/gif' ]:
             _LOGGER.info("Meural device %s: Playing media. Media type is %s, previewing image from %s", self.name, media_type, media_id)
-            await self.local_meural.send_postcard(media_id, media_type)
+            if use_cloud:
+                await self.meural.send_postcard_cloud(self._meural_device, media_id, media_type, name, author, description, medium, year, duration)
+            else:
+                await self.local_meural.send_postcard(media_id, media_type)
 
         # Play item (artwork) by ID. Play locally if item is in currently displayed gallery. If not, play using Meural server."""
         elif media_type in ['item']:
@@ -558,7 +588,15 @@ class MeuralEntity(MediaPlayerEntity):
         """Preview image from URL."""
         if content_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
             _LOGGER.info("Meural device %s: Previewing image. Media type is %s, previewing image from %s", self.name, content_type, content_url)
-            await self.local_meural.send_postcard(content_url, content_type)
+            await self.async_play_media(media_type=content_type, media_id=content_url)
+        else:
+            _LOGGER.error("Meural device %s: Previewing image. Does not support media type %s", self.name, content_type)
+
+    async def async_preview_image_cloud(self, content_url, content_type, name=None, author=None, description=None, medium=None, year=None, duration=None):
+        """Preview image from URL."""
+        if content_type in [ 'image/jpg', 'image/png', 'image/jpeg', 'image/gif' ]:
+            _LOGGER.info("Meural device %s: Previewing image via meural cloud. Media type is %s, previewing image from %s", self.name, content_type, content_url)
+            await self.async_play_media(media_type=content_type, media_id=content_url, use_cloud=True, name=name, author=author, description=description, medium=medium, year=year, duration=duration)
         else:
             _LOGGER.error("Meural device %s: Previewing image. Does not support media type %s", self.name, content_type)
 

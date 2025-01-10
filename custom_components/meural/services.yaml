@@ -16,7 +16,7 @@ reset_brightness:
       description: Entity ID of the Meural Canvas to update.
       example: "media_player.meural-123"
 toggle_informationcard:
-  description: Toggle display of the information card, a museum-style placard, on your Canvas. 
+  description: Toggle display of the information card, a museum-style placard, on your Canvas.
   fields:
     entity_id:
       description: Entity ID of the Meural Canvas to toggle display on.
@@ -39,6 +39,35 @@ preview_image:
     content_type:
       description: The type of image to preview. Can be image/jpg or image/png.
       example: "image/png"
+
+preview_image_cloud:
+  description: Preview an image from an URL on Meural Canvas (Uses Meural cloud storage to work around the sticky image issue when displaying an image using local API).
+  fields:
+    entity_id:
+      description: Entity ID of the Meural Canvas to update.
+      example: "media_player.meural-123"
+    content_url:
+      description: URL of the image to preview.
+      example: "https://home-assistant.io/images/cast/splash.png"
+    content_type:
+      description: The type of image to preview. Can be image/jpg or image/png.
+      example: "image/png"
+    name:
+      description: Name of the media item
+      example: "Game of Thrones"
+    author:
+      description: Author or Artist name
+      example: George Martin
+    description:
+      description: Description for the media item
+      example: Game of Thrones Poster image
+    medium:
+      description: Medium for the media item
+      example: Photography
+    year:
+      description: Year. This needs to be a date or just the year. Other format doesn't work
+      example: 2022/05/01
+
 set_device_option:
   description: Set the configuration options of a Meural Canvas.
   fields:
@@ -47,9 +76,9 @@ set_device_option:
       example: "media_player.meural-123"
     orientation:
       description: Override the orientation of images on your Canvas. Can be horizontal, vertical.
-      example: "horizontal" 
+      example: "horizontal"
     orientationMatch:
-      description: Your Canvas will only show images that match its current orientation, i.e. if your Canvas is in vertical, only vertical images will display. 
+      description: Your Canvas will only show images that match its current orientation, i.e. if your Canvas is in vertical, only vertical images will display.
       example: "true"
     alsEnabled:
       description: Your Canvas will automatically adjusts its brightness to match its surroundings using the Ambient Light Sensor.
@@ -84,7 +113,7 @@ set_device_option:
     backgroundColor:
       description: Color displayed behind images that don't fill the frame. Can be grey, white, black.
       example: "black"
-    fillMode: 
+    fillMode:
       description: How images will fill the screen if they don't match the Canvas' aspect ratio. Can be contain, auto crop, as is, stretch.
       example: "auto crop"
     galleryRotation:
