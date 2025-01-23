@@ -1,6 +1,13 @@
 import asyncio
 import logging
 import json
+import aiohttp
+import async_timeout
+import io
+from PIL import Image
+import os
+from urllib.parse import urlparse
+import base64
 
 from typing import Dict
 import aiohttp
@@ -8,9 +15,9 @@ import async_timeout
 
 from aiohttp.client_exceptions import ClientResponseError
 
-from homeassistant.exceptions import HomeAssistantError
 
 _LOGGER = logging.getLogger(__name__)
+_LOGGER.setLevel(logging.DEBUG)
 
 BASE_URL = "https://api.meural.com/v0/"
 
@@ -127,6 +134,49 @@ class PyMeural:
 
     async def get_item(self, item_id):
         return await self.request("get", f"items/{item_id}")
+
+    async def upload_image_from_url(self, image_url):
+        """
+        Upload an image from a URL to Meural.
+        
+        :param image_url: The URL of the image to upload
+        :return: The ID of the uploaded item
+        """
+        try:
+            # Download the image
+            async with self.session.get(image_url) as response:
+                if response.status != 200:
+                    raise Exception(f"Failed to download image: HTTP {response.status}")
+                image_data = await response.read()
+
+            # Get the filename from the URL
+            parsed_url = urlparse(image_url)
+            filename = os.path.basename(parsed_url.path)
+
+            # Prepare the form data
+            data = aiohttp.FormData()
+            data.add_field('image', 
+                           image_data,
+                           filename=filename,
+                           content_type=response.headers.get('Content-Type', 'image/jpeg'))
+
+            # Prepare the URL and headers
+            url = f"{BASE_URL}items"
+            headers = {
+                "Authorization": f"Token {self.token}",
+                "x-meural-api-version": "3"
+            }
+
+            # Send the request using self.session
+            async with self.session.post(url, data=data, headers=headers) as resp:
+                resp.raise_for_status()
+                response_data = await resp.json()
+
+            item_id = response_data['data']['id']
+            return item_id
+
+        except Exception as e:
+            raise Exception(f"Failed to upload image: {str(e)}")
 
 class LocalMeural:
     def __init__(self, device, session: aiohttp.ClientSession):
@@ -248,12 +298,12 @@ class LocalMeural:
 
         return response
 
-class CannotConnect(HomeAssistantError):
+class CannotConnect():
     """Error to indicate we cannot connect."""
 
 
-class InvalidAuth(HomeAssistantError):
+class InvalidAuth():
     """Error to indicate there is invalid auth."""
 
-class DeviceTurnedOff(HomeAssistantError):
+class DeviceTurnedOff():
     """Error to indicate device turned off or not connected to the network."""
