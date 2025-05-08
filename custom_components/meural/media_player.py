@@ -13,6 +13,8 @@ from homeassistant.components.http.auth import async_sign_path
 from homeassistant.components.media_player import BrowseError, BrowseMedia
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.network import get_url
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.components.media_player import MediaClass, MediaType
 
 from homeassistant.const import (
     STATE_PLAYING,
@@ -23,10 +25,7 @@ from homeassistant.const import (
 )
 
 from homeassistant.components.media_player.const import (
-    MEDIA_CLASS_DIRECTORY,
-    MEDIA_TYPE_IMAGE,
-    MEDIA_TYPE_PLAYLIST,
-    MediaPlayerEntityFeature,
+    MediaPlayerEntityFeature
 )
 
 from .const import DOMAIN
@@ -156,7 +155,7 @@ class MeuralEntity(MediaPlayerEntity):
     def local_meural(self):
         return LocalMeural(
             self._meural_device,
-            self.hass.helpers.aiohttp_client.async_get_clientsession(),
+            async_get_clientsession(self.hass)
         )
 
     async def async_added_to_hass(self):
@@ -315,7 +314,7 @@ class MeuralEntity(MediaPlayerEntity):
     @property
     def media_content_type(self):
         """Return the content type of current playing media."""
-        return MEDIA_TYPE_IMAGE
+        return MediaType.IMAGE
 
     @property
     def media_summary(self):
@@ -568,21 +567,21 @@ class MeuralEntity(MediaPlayerEntity):
         if media_content_id in (None, "") and media_content_type in (None, ""):
             response = BrowseMedia(
                 title="Meural Canvas",
-                media_class=MEDIA_CLASS_DIRECTORY,
+                media_class=MediaClass.DIRECTORY,
                 media_content_id="",
                 media_content_type="",
                 can_play=False,
                 can_expand=True,
                 children=[BrowseMedia(
                     title="Media Source",
-                    media_class=MEDIA_CLASS_DIRECTORY,
+                    media_class=MediaClass.DIRECTORY,
                     media_content_id="",
                     media_content_type="localmediasource",
                     can_play=False,
                     can_expand=True),
                 BrowseMedia(
                     title="Meural Playlists",
-                    media_class=MEDIA_CLASS_DIRECTORY,
+                    media_class=MediaClass.DIRECTORY,
                     media_content_id="",
                     media_content_type="meuralplaylists",
                     can_play=False,
@@ -602,7 +601,7 @@ class MeuralEntity(MediaPlayerEntity):
         elif media_content_type=="meuralplaylists":
             response = BrowseMedia(
                 title="Meural Playlists",
-                media_class=MEDIA_CLASS_DIRECTORY,
+                media_class=MediaClass.DIRECTORY,
                 media_content_id="",
                 media_content_type="",
                 can_play=False,
@@ -630,9 +629,9 @@ class MeuralEntity(MediaPlayerEntity):
 
                 response.children.append(BrowseMedia(
                     title=g["name"],
-                    media_class=MEDIA_TYPE_PLAYLIST,
+                    media_class=MediaType.PLAYLIST,
                     media_content_id=g["id"],
-                    media_content_type=MEDIA_TYPE_PLAYLIST,
+                    media_content_type=MediaType.PLAYLIST,
                     can_play=True,
                     can_expand=False,
                     thumbnail=thumb,
