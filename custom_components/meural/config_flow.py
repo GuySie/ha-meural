@@ -5,6 +5,9 @@ import voluptuous as vol
 
 from homeassistant import config_entries, core, exceptions
 
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
 from .const import DOMAIN  # pylint:disable=unused-import
 
 from . import pymeural
@@ -18,7 +21,7 @@ async def validate_input(hass: core.HomeAssistant, data):
 
     Data has the keys from DATA_SCHEMA with values provided by the user.
     """
-    session = hass.helpers.aiohttp_client.async_get_clientsession()
+    session = async_get_clientsession(hass)
     return await pymeural.authenticate(session, data["email"], data["password"])
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
