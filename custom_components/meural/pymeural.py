@@ -5,6 +5,7 @@ import json
 from typing import Dict
 import aiohttp
 import async_timeout
+import boto3
 
 from aiohttp.client_exceptions import ClientResponseError
 
@@ -20,27 +21,21 @@ async def authenticate(
 ) -> str:
     """Authenticate and return a token."""
     _LOGGER.info('Meural: Authenticating')
-    try:
-        with async_timeout.timeout(10):
-            resp = await session.request(
-                "post",
-                BASE_URL + "authenticate",
-                data={"username": username, "password": password},
-                raise_for_status=True,
-            )
-    except ClientResponseError as err:
-        _LOGGER.info('Meural: Authentication failed: %s', err)
-        if err.status == 401:
-            raise InvalidAuth
-        else:
-            raise CannotConnect
-    except asyncio.TimeoutError:
-        _LOGGER.info('Meural: Authentication failed: %s', err)
-        raise CannotConnect
 
-    data = await resp.json()
-    return data["token"]
+    def initiate_auth():
+        client = boto3.client("cognito-idp", region_name="eu-west-1")
+        return client.initiate_auth(
+            ClientId="487bd4kvb1fnop6mbgk8gu5ibf",
+            AuthFlow="USER_PASSWORD_AUTH",
+            AuthParameters={"USERNAME": username, "PASSWORD": password},
+        )
 
+    response = await asyncio.to_thread(initiate_auth)
+
+    if "AuthenticationResult" in response:
+        return response["AuthenticationResult"]["AccessToken"]
+
+    raise InvalidAuth
 
 class PyMeural:
     def __init__(self, username, password, token, token_update_callback, session: aiohttp.ClientSession):
