@@ -490,6 +490,20 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         _LOGGER.info("Meural device %s: Synchronizing with Meural server", self.name)
         await self.meural.sync_device(self.meural_device_id)
 
+    async def _refresh_after_user_action(self) -> None:
+        """Refresh coordinator data immediately after user action to update thumbnail."""
+        # Give device a moment to process the command
+        await asyncio.sleep(0.5)
+
+        # Force local coordinator refresh to get updated gallery status
+        await self.local_coordinator.async_request_refresh()
+
+        # Fetch current item to update thumbnail
+        await self._fetch_current_item_if_needed()
+
+        # Update the UI
+        self.async_write_ha_state()
+
     async def async_select_source(self, source: str) -> None:
         """Select playlist to display."""
         if not self.local_coordinator.data:
@@ -503,20 +517,26 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         else:
             _LOGGER.info("Meural device %s: Selecting source. Playing gallery %s, ID %s", self.name, source, playlist)
             await self.local_meural.send_change_gallery(playlist)
+            # Refresh immediately to update thumbnail
+            await self._refresh_after_user_action()
 
-    async def async_media_previous_track(self):
+    async def async_media_previous_track(self) -> None:
         """Send previous image command."""
         if self._meural_device["gestureFlip"] == True:
             await self.local_meural.send_key_right()
         else:
             await self.local_meural.send_key_left()
+        # Refresh immediately to update thumbnail
+        await self._refresh_after_user_action()
 
-    async def async_media_next_track(self):
+    async def async_media_next_track(self) -> None:
         """Send next image command."""
         if self._meural_device["gestureFlip"] == True:
             await self.local_meural.send_key_left()
         else:
             await self.local_meural.send_key_right()
+        # Refresh immediately to update thumbnail
+        await self._refresh_after_user_action()
 
     async def async_turn_on(self):
         """Resume Meural frame display."""
