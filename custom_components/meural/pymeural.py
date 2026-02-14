@@ -56,6 +56,7 @@ class PyMeural:
         self.session = session
         self.token = token
         self.token_update_callback = token_update_callback
+        self._auth_lock = asyncio.Lock()
 
     async def request(self, method: str, path: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
         fetched_new_token = self.token is None
@@ -97,8 +98,14 @@ class PyMeural:
 
     async def get_new_token(self) -> None:
         """Fetch and store a new authentication token."""
-        self.token = await authenticate(self.session, self.username, self.password)
-        self.token_update_callback(self.token)
+        async with self._auth_lock:
+            # Check if another concurrent request already refreshed the token
+            if self.token is not None:
+                return
+
+            _LOGGER.info("Meural: Fetching new authentication token")
+            self.token = await authenticate(self.session, self.username, self.password)
+            self.token_update_callback(self.token)
 
     async def get_user(self) -> dict[str, Any]:
         """Get user information."""
