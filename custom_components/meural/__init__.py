@@ -29,17 +29,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.warning("Authentication changed. Please set up Meural again")
         return False
 
-    def token_update_callback(token):
-        _LOGGER.debug("Token changed. Updating config entry.")
-        hass.config_entries.async_update_entry(entry, data={**entry.data, "token": token})
+    def token_update_callback(token: str, refresh_token: str) -> None:
+        """Update both access token and refresh token in config entry."""
+        _LOGGER.debug("Tokens updated. Saving to config entry.")
+        hass.config_entries.async_update_entry(
+            entry,
+            data={**entry.data, "token": token, "refresh_token": refresh_token}
+        )
 
     # Create PyMeural instance with token refresh callback
     meural = pymeural.PyMeural(
         entry.data["email"],
         entry.data["password"],
-        entry.data["token"],
+        entry.data.get("token"),
         token_update_callback,
-        async_get_clientsession(hass)
+        async_get_clientsession(hass),
+        refresh_token=entry.data.get("refresh_token"),
     )
 
     # Create and initialize CloudDataUpdateCoordinator

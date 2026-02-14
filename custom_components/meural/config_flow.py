@@ -19,10 +19,11 @@ _LOGGER = logging.getLogger(__name__)
 DATA_SCHEMA = vol.Schema({"email": str, "password": str})
 
 
-async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> str:
+async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> tuple[str, str]:
     """Validate the user input allows us to connect.
 
     Data has the keys from DATA_SCHEMA with values provided by the user.
+    Returns access token and refresh token.
     """
     session = async_get_clientsession(hass)
     return await pymeural.authenticate(session, data["email"], data["password"])
@@ -37,7 +38,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
-                token = await validate_input(self.hass, user_input)
+                token, refresh_token = await validate_input(self.hass, user_input)
 
                 await self.async_set_unique_id(user_input["email"], raise_on_progress=False)
                 return self.async_create_entry(
@@ -45,7 +46,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data={
                         "email": user_input["email"],
                         "password": user_input["password"],
-                        "token": token
+                        "token": token,
+                        "refresh_token": refresh_token,
                     },
                 )
             except pymeural.CannotConnect:

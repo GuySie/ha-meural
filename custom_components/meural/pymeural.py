@@ -20,9 +20,9 @@ BASE_URL = "https://api.meural.com/v0/"
 
 async def authenticate(
     session: aiohttp.ClientSession, username: str, password: str
-) -> str:
-    """Authenticate and return a token."""
-    _LOGGER.info('Meural: Authenticating')
+) -> tuple[str, str]:
+    """Authenticate and return access token and refresh token."""
+    _LOGGER.info('Meural: Authenticating with username and password')
 
     def initiate_auth():
         client = boto3.client("cognito-idp", region_name="eu-west-1")
@@ -35,7 +35,39 @@ async def authenticate(
     response = await asyncio.to_thread(initiate_auth)
 
     if "AuthenticationResult" in response:
-        return response["AuthenticationResult"]["AccessToken"]
+        auth_result = response["AuthenticationResult"]
+        access_token = auth_result["AccessToken"]
+        refresh_token = auth_result.get("RefreshToken", "")
+        _LOGGER.debug("Meural: Authentication successful, tokens received")
+        return access_token, refresh_token
+
+    raise InvalidAuth
+
+
+async def refresh_access_token(
+    session: aiohttp.ClientSession, refresh_token: str
+) -> str:
+    """Refresh access token using refresh token."""
+    _LOGGER.info('Meural: Refreshing access token using refresh token')
+
+    def initiate_auth_refresh():
+        client = boto3.client("cognito-idp", region_name="eu-west-1")
+        return client.initiate_auth(
+            ClientId="487bd4kvb1fnop6mbgk8gu5ibf",
+            AuthFlow="REFRESH_TOKEN_AUTH",
+            AuthParameters={"REFRESH_TOKEN": refresh_token},
+        )
+
+    try:
+        response = await asyncio.to_thread(initiate_auth_refresh)
+
+        if "AuthenticationResult" in response:
+            access_token = response["AuthenticationResult"]["AccessToken"]
+            _LOGGER.debug("Meural: Access token refreshed successfully")
+            return access_token
+    except Exception as err:
+        _LOGGER.warning("Meural: Failed to refresh token: %s", err)
+        raise InvalidAuth from err
 
     raise InvalidAuth
 
@@ -47,14 +79,16 @@ class PyMeural:
         username: str,
         password: str,
         token: str | None,
-        token_update_callback: Callable[[str], None],
+        token_update_callback: Callable[[str, str], None],
         session: aiohttp.ClientSession,
+        refresh_token: str | None = None,
     ) -> None:
         """Initialize PyMeural client."""
         self.username = username
         self.password = password
         self.session = session
         self.token = token
+        self.refresh_token = refresh_token
         self.token_update_callback = token_update_callback
         self._auth_lock = asyncio.Lock()
 
@@ -103,9 +137,24 @@ class PyMeural:
             if self.token is not None:
                 return
 
-            _LOGGER.info("Meural: Fetching new authentication token")
-            self.token = await authenticate(self.session, self.username, self.password)
-            self.token_update_callback(self.token)
+            # Try to refresh using refresh token first
+            if self.refresh_token:
+                try:
+                    _LOGGER.debug("Meural: Attempting to refresh access token")
+                    self.token = await refresh_access_token(self.session, self.refresh_token)
+                    # Update only access token, keep existing refresh token
+                    self.token_update_callback(self.token, self.refresh_token)
+                    return
+                except InvalidAuth:
+                    _LOGGER.info("Meural: Refresh token invalid, performing full authentication")
+                    # Refresh token is invalid, fall through to full authentication
+
+            # Full authentication with username and password
+            _LOGGER.info("Meural: Performing full authentication")
+            self.token, self.refresh_token = await authenticate(
+                self.session, self.username, self.password
+            )
+            self.token_update_callback(self.token, self.refresh_token)
 
     async def get_user(self) -> dict[str, Any]:
         """Get user information."""
