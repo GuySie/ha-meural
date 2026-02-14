@@ -1,8 +1,8 @@
 """The Meural integration."""
+from __future__ import annotations
+
 import asyncio
 import logging
-
-import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -10,10 +10,9 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DOMAIN
 from . import pymeural
+from .coordinator import CloudDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
-
-CONFIG_SCHEMA = vol.Schema({DOMAIN: vol.Schema({})}, extra=vol.ALLOW_EXTRA)
 
 PLATFORMS = ["media_player"]
 
@@ -24,7 +23,7 @@ async def async_setup(hass: HomeAssistant, config: dict):
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Meural from a config entry."""
     if "email" not in entry.data:
         _LOGGER.warning("Authentication changed. Please set up Meural again")
@@ -34,7 +33,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER.debug("Token changed. Updating config entry.")
         hass.config_entries.async_update_entry(entry, data={**entry.data, "token": token})
 
-    hass.data[DOMAIN][entry.entry_id] = pymeural.PyMeural(
+    # Create PyMeural instance with token refresh callback
+    meural = pymeural.PyMeural(
         entry.data["email"],
         entry.data["password"],
         entry.data["token"],
@@ -42,6 +42,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         async_get_clientsession(hass)
     )
 
+    # Create and initialize CloudDataUpdateCoordinator
+    cloud_coordinator = CloudDataUpdateCoordinator(hass, meural, entry)
+
+    # Perform first refresh
+    await cloud_coordinator.async_config_entry_first_refresh()
+
+    # Store meural instance and coordinator in hass.data
+    hass.data[DOMAIN][entry.entry_id] = {
+        "meural": meural,
+        "cloud_coordinator": cloud_coordinator,
+    }
+
+    # Forward to platform setup
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True

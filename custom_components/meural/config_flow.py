@@ -1,22 +1,25 @@
 """Config flow for Meural integration."""
+from __future__ import annotations
+
 import logging
+from typing import Any
 
 import voluptuous as vol
 
-from homeassistant import config_entries, core, exceptions
-
+from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
+from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DOMAIN  # pylint:disable=unused-import
-
 from . import pymeural
 
 _LOGGER = logging.getLogger(__name__)
 
 DATA_SCHEMA = vol.Schema({"email": str, "password": str})
 
-async def validate_input(hass: core.HomeAssistant, data):
+
+async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> str:
     """Validate the user input allows us to connect.
 
     Data has the keys from DATA_SCHEMA with values provided by the user.
@@ -28,11 +31,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Meural."""
 
     VERSION = 1
-    CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle the initial step."""
-        errors = {}
+        errors: dict[str, str] = {}
         if user_input is not None:
             try:
                 token = await validate_input(self.hass, user_input)
@@ -48,7 +50,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
             except pymeural.CannotConnect:
                 errors["base"] = "cannot_connect"
-                raise
             except pymeural.InvalidAuth:
                 errors["base"] = "invalid_auth"
             except Exception:  # pylint: disable=broad-except

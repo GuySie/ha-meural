@@ -157,5 +157,35 @@ The available calls in this javascript are:
 `/remote/control_command_post/delete_wifi_connection/`  
 `/remote/postcard/`  
 
+## Technical Details
+
+### Architecture (v2.0.0+)
+
+Starting with version 2.0.0, ha-meural uses Home Assistant's modern DataUpdateCoordinator pattern for efficient data polling and state management:
+
+**Dual Coordinator Pattern:**
+- **CloudDataUpdateCoordinator**: Polls the Meural cloud API every 30 seconds (120 seconds when device is sleeping) to fetch device information, device galleries, and user galleries. Handles authentication errors automatically by triggering the reauth flow.
+- **LocalDataUpdateCoordinator**: Polls the local device API every 10 seconds to fetch real-time state (sleep status, local galleries, current gallery status). Each device has its own local coordinator instance.
+
+**Benefits:**
+- Efficient polling with dynamic update intervals based on device state
+- Automatic error recovery and retry handling
+- Reduced memory overhead through persistent LocalMeural instances
+- Better separation of concerns between cloud and local data
+
+**Requirements:**
+- Home Assistant 2024.1.0 or newer
+- Python 3.11 or newer
+
+### Code Modernization (v2.0.0)
+
+Version 2.0.0 represents a major modernization of the codebase to follow Home Assistant 2024-2025 best practices:
+
+- **Safety improvements**: Replaced bare `except:` clauses with specific exception types
+- **Modern patterns**: Removed deprecated code (CONFIG_SCHEMA, CONNECTION_CLASS, version checks)
+- **Type hints**: Added comprehensive type annotations throughout the codebase
+- **Better error handling**: Improved exception handling and error recovery
+- **Backward compatible**: Fully backward compatible with existing installations - no user action required
+
 ## Thanks
 The first version of this integration was built by [@balloob](https://github.com/balloob) - many, many thanks to him. Blame [@guysie](https://github.com/guysie) for the code added afterwards. Thanks to [@thomasvs](https://github.com/thomasvs) for contributing the code to preview images and [@sanghviharshit](https://github.com/sanghviharshit) for the re-authentication code!
