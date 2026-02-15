@@ -184,6 +184,7 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         self._current_item: dict[str, Any] = {}
         self._pause_duration = 0
         self._abort = False
+        self._last_fetched_item_id: int | None = None
 
         # Start listening to local coordinator updates
         self.async_on_remove(
@@ -244,8 +245,17 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         if current_gallery > SD_CARD_FOLDER_MAX_ID:
             try:
                 current_item_id = int(gallery_status.get("current_item", 0))
-                if current_item_id:
+                # Only fetch if item ID has changed to avoid unnecessary cloud API calls
+                if current_item_id and current_item_id != self._last_fetched_item_id:
+                    _LOGGER.debug(
+                        "Meural device %s: Fetching cloud data for item %s to update thumbnail",
+                        self.name,
+                        current_item_id,
+                    )
                     self._current_item = await self.meural.get_item(current_item_id)
+                    self._last_fetched_item_id = current_item_id
+                    # Update UI with new thumbnail
+                    self.async_write_ha_state()
             except (aiohttp.ClientError, asyncio.TimeoutError, KeyError) as err:
                 _LOGGER.warning(
                     "Meural device %s: Error getting current item information: %s",
@@ -253,6 +263,8 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
                     err,
                 )
                 self._current_item = {}
+                # Reset last fetched ID on error to retry next time
+                self._last_fetched_item_id = None
         else:
             _LOGGER.debug(
                 "Meural device %s: Gallery %s is a local SD-card folder",
@@ -260,6 +272,8 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
                 current_gallery,
             )
             self._current_item = {}
+            # Reset last fetched ID when in SD card folder
+            self._last_fetched_item_id = None
 
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the cloud coordinator."""
@@ -506,14 +520,9 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         # Give device a moment to process the command
         await asyncio.sleep(0.5)
 
-        # Force local coordinator refresh to get updated gallery status
-        await self.local_coordinator.async_request_refresh()
-
-        # Fetch current item to update thumbnail
-        await self._fetch_current_item_if_needed()
-
-        # Update the UI
-        self.async_write_ha_state()
+        # Force immediate refresh for user-initiated actions (bypasses throttling)
+        # This will automatically trigger _fetch_current_item_if_needed() via the coordinator update listener
+        await self.local_coordinator.async_refresh()
 
     async def async_select_source(self, source: str) -> None:
         """Select playlist to display."""
