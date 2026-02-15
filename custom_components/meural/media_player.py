@@ -290,9 +290,20 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
             # Check if orientation changed (requires special handling)
             if old_device.get("orientation") != self._meural_device.get("orientation"):
                 _LOGGER.debug(
-                    "Meural device %s: Orientation changed, may need to reload gallery",
+                    "Meural device %s: Orientation changed from %s to %s",
                     self.name,
+                    old_device.get("orientation"),
+                    self._meural_device.get("orientation"),
                 )
+                # If orientationMatch is enabled, device may have auto-switched to different item
+                if self._meural_device.get("orientationMatch"):
+                    _LOGGER.debug(
+                        "Meural device %s: orientationMatch enabled, forcing item refresh",
+                        self.name,
+                    )
+                    # Force re-fetch of current item since device may have auto-switched
+                    self._last_fetched_item_id = None
+                    self.hass.async_create_task(self._fetch_current_item_if_needed())
 
         self.async_write_ha_state()
 

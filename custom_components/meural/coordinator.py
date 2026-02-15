@@ -45,18 +45,6 @@ class CloudDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=self._update_interval,
         )
 
-    def set_update_interval(self, sleeping: bool) -> None:
-        """Adjust update interval based on device sleep state.
-
-        Deprecated: This method is kept for backward compatibility.
-        Use register_local_coordinator() instead - the coordinator now
-        automatically manages intervals based on all devices' sleep states.
-        """
-        if sleeping:
-            self.update_interval = timedelta(seconds=CLOUD_UPDATE_INTERVAL_SLEEPING)
-        else:
-            self.update_interval = timedelta(seconds=CLOUD_UPDATE_INTERVAL)
-
     def register_local_coordinator(
         self, device_id: str, local_coordinator: "LocalDataUpdateCoordinator"
     ) -> None:
@@ -199,13 +187,17 @@ class LocalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         except (DeviceTurnedOff, aiohttp.ClientError, asyncio.TimeoutError) as err:
             # Device offline or network error - set sleeping but don't fail
-            _LOGGER.debug(
-                "Meural device %s: Error contacting local device: %s",
+            _LOGGER.warning(
+                "Meural device %s: Failed to contact local device",
                 self.device.get("alias", self.device_id),
                 err,
             )
             self._sleeping = True
             # Return last known data or minimal data
+            _LOGGER.debug(
+                "Meural device %s: Returning cached data due to connection failure",
+                self.device.get("alias", self.device_id),
+            )
             return {
                 "sleeping": True,
                 "galleries": self.data.get("galleries", []) if self.data else [],
