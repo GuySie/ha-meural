@@ -100,7 +100,7 @@ class PyMeural:
         kwargs = {}
         if data:
             if method == "get":
-                kwargs["query"] = data
+                kwargs["params"] = data
             else:
                 kwargs["json"] = data
         with async_timeout.timeout(10):
@@ -218,7 +218,7 @@ class LocalMeural:
         kwargs = {}
         if data:
             if method == "get":
-                kwargs["query"] = data
+                kwargs["params"] = data
             else:
                 kwargs["data"] = data
         try:

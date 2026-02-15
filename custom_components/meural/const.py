@@ -4,7 +4,7 @@ DOMAIN = "meural"
 
 # Coordinator update intervals (in seconds)
 CLOUD_UPDATE_INTERVAL = 60
-CLOUD_UPDATE_INTERVAL_SLEEPING = 600
+CLOUD_UPDATE_INTERVAL_SLEEPING = 3600
 LOCAL_UPDATE_INTERVAL = 10
 
 # SD card folder max ID
