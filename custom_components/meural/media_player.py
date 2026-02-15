@@ -190,6 +190,13 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
             self.local_coordinator.async_add_listener(self._handle_local_coordinator_update)
         )
 
+        # Unregister local coordinator when entity is removed
+        self.async_on_remove(
+            lambda: self.cloud_coordinator.unregister_local_coordinator(
+                self.meural_device_id
+            )
+        )
+
     @property
     def meural_device_id(self) -> str:
         """Return the device ID."""
@@ -208,6 +215,11 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
     async def async_added_to_hass(self) -> None:
         """Run when entity is added to hass."""
         await super().async_added_to_hass()
+
+        # Register this entity's local coordinator with cloud coordinator
+        self.cloud_coordinator.register_local_coordinator(
+            self.meural_device_id, self.local_coordinator
+        )
 
         # Get device info from cloud coordinator
         device_id = self.meural_device_id
@@ -259,11 +271,7 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
             # Update local coordinator's device reference
             self.local_coordinator.update_device(self._meural_device)
 
-            # Check if we need to adjust cloud coordinator update interval
-            if self.local_coordinator.sleeping:
-                self.cloud_coordinator.set_update_interval(sleeping=True)
-            else:
-                self.cloud_coordinator.set_update_interval(sleeping=False)
+            # Cloud coordinator now manages interval based on all devices' sleep states
 
             # Check if orientation changed (requires special handling)
             if old_device.get("orientation") != self._meural_device.get("orientation"):
@@ -276,6 +284,9 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
 
     def _handle_local_coordinator_update(self) -> None:
         """Handle updated data from the local coordinator."""
+        # Notify cloud coordinator that sleep state may have changed
+        self.cloud_coordinator.notify_sleep_state_changed()
+
         # When local data updates, fetch current item if it changed
         if self.local_coordinator.data:
             gallery_status = self.local_coordinator.data.get("gallery_status", {})

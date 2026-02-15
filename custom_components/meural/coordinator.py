@@ -36,6 +36,7 @@ class CloudDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.meural = meural
         self.entry = entry
         self._update_interval = timedelta(seconds=CLOUD_UPDATE_INTERVAL)
+        self._local_coordinators: dict[str, Any] = {}
 
         super().__init__(
             hass,
@@ -45,11 +46,57 @@ class CloudDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
 
     def set_update_interval(self, sleeping: bool) -> None:
-        """Adjust update interval based on device sleep state."""
+        """Adjust update interval based on device sleep state.
+
+        Deprecated: This method is kept for backward compatibility.
+        Use register_local_coordinator() instead - the coordinator now
+        automatically manages intervals based on all devices' sleep states.
+        """
         if sleeping:
             self.update_interval = timedelta(seconds=CLOUD_UPDATE_INTERVAL_SLEEPING)
         else:
             self.update_interval = timedelta(seconds=CLOUD_UPDATE_INTERVAL)
+
+    def register_local_coordinator(
+        self, device_id: str, local_coordinator: "LocalDataUpdateCoordinator"
+    ) -> None:
+        """Register a local coordinator for sleep state tracking."""
+        self._local_coordinators[device_id] = local_coordinator
+        self._update_polling_interval()
+
+    def unregister_local_coordinator(self, device_id: str) -> None:
+        """Unregister a local coordinator."""
+        self._local_coordinators.pop(device_id, None)
+        self._update_polling_interval()
+
+    def _update_polling_interval(self) -> None:
+        """Update polling interval based on all devices' sleep states."""
+        # If any device is awake, use fast interval
+        # Only use slow interval if ALL devices are sleeping or no devices registered
+        any_awake = any(
+            not coord.sleeping for coord in self._local_coordinators.values()
+        )
+
+        if any_awake:
+            new_interval = timedelta(seconds=CLOUD_UPDATE_INTERVAL)
+        else:
+            new_interval = timedelta(seconds=CLOUD_UPDATE_INTERVAL_SLEEPING)
+
+        # Only update if interval actually changed to avoid unnecessary refreshes
+        if self.update_interval != new_interval:
+            awake_count = sum(
+                1 for coord in self._local_coordinators.values() if not coord.sleeping
+            )
+            _LOGGER.debug(
+                "Meural Cloud: Adjusting update interval to %s seconds (%d awake devices)",
+                new_interval.total_seconds(),
+                awake_count,
+            )
+            self.update_interval = new_interval
+
+    def notify_sleep_state_changed(self) -> None:
+        """Called when a local coordinator's sleep state may have changed."""
+        self._update_polling_interval()
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from Meural cloud API."""
