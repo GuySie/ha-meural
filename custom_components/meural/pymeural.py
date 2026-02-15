@@ -162,15 +162,15 @@ class PyMeural:
 
     async def get_user_items(self) -> list[dict[str, Any]]:
         """Get user items."""
-        return await self.request("get", "user/items")
+        return await self.request("get", "user/items", {"count": 1000})
 
     async def get_user_galleries(self) -> list[dict[str, Any]]:
         """Get user galleries."""
-        return await self.request("get", "user/galleries")
+        return await self.request("get", "user/galleries", {"count": 1000})
 
     async def get_user_devices(self) -> list[dict[str, Any]]:
         """Get user devices."""
-        return await self.request("get", "user/devices")
+        return await self.request("get", "user/devices", {"count": 1000})
 
     async def get_user_feedback(self) -> dict[str, Any]:
         """Get user feedback."""
@@ -190,7 +190,7 @@ class PyMeural:
 
     async def get_device_galleries(self, device_id: str | int) -> list[dict[str, Any]]:
         """Get device galleries."""
-        return await self.request("get", f"devices/{device_id}/galleries")
+        return await self.request("get", f"devices/{device_id}/galleries", {"count": 1000})
 
     async def update_device(self, device_id: str | int, data: dict[str, Any]) -> dict[str, Any]:
         """Update device settings."""
