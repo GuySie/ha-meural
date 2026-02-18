@@ -188,7 +188,7 @@ class LocalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except (DeviceTurnedOff, aiohttp.ClientError, asyncio.TimeoutError) as err:
             # Device offline or network error - set sleeping but don't fail
             _LOGGER.warning(
-                "Meural device %s: Failed to contact local device",
+                "Meural device %s: Failed to contact local device (%s)",
                 self.device.get("alias", self.device_id),
                 err,
             )
