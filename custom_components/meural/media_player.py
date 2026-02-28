@@ -558,7 +558,15 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
             _LOGGER.warning("Meural device %s: Play random playlist. No galleries available", self.name)
             return
 
-        gallery = random.choice(galleries)
+        gallery_status = self.local_coordinator.data.get("gallery_status", {})
+        current_gallery_id = str(gallery_status.get("current_gallery", ""))
+
+        candidate_galleries = [g for g in galleries if str(g["id"]) != current_gallery_id]
+        if not candidate_galleries:
+            # Only one gallery available; play it regardless
+            candidate_galleries = galleries
+
+        gallery = random.choice(candidate_galleries)
         _LOGGER.info(
             "Meural device %s: Play random playlist. Playing random gallery %s, ID %s",
             self.name,
