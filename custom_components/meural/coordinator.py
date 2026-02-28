@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import timedelta
 from typing import Any
 
@@ -16,6 +17,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .const import (
     CLOUD_UPDATE_INTERVAL,
     CLOUD_UPDATE_INTERVAL_SLEEPING,
+    GALLERY_UPDATE_INTERVAL,
     LOCAL_UPDATE_INTERVAL,
 )
 from .pymeural import DeviceTurnedOff, InvalidAuth, LocalMeural, PyMeural
@@ -37,6 +39,8 @@ class CloudDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.entry = entry
         self._update_interval = timedelta(seconds=CLOUD_UPDATE_INTERVAL)
         self._local_coordinators: dict[str, Any] = {}
+        self._last_gallery_fetch: float = 0.0
+        self._gallery_refresh_in_progress: bool = False
 
         super().__init__(
             hass,
@@ -74,13 +78,28 @@ class CloudDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Called when a local coordinator's sleep state may have changed."""
         self._update_polling_interval()
 
-    async def _async_update_data(self) -> dict[str, Any]:
-        """Fetch data from Meural cloud API."""
-        try:
-            # Get all devices
-            devices = await self.meural.get_user_devices()
+    @property
+    def galleries_stale(self) -> bool:
+        """Return True if gallery data should be refreshed."""
+        if self._last_gallery_fetch == 0.0:
+            return True
+        return (time.monotonic() - self._last_gallery_fetch) > GALLERY_UPDATE_INTERVAL
 
-            # Get device galleries and user galleries
+    async def async_refresh_galleries(self) -> None:
+        """Fetch gallery data and update coordinator data in-place.
+
+        Called after synchronize() service, when media browser opens with stale data,
+        or as a background task when the regular poll detects stale gallery data.
+        """
+        if self._gallery_refresh_in_progress:
+            return
+        self._gallery_refresh_in_progress = True
+        try:
+            existing = self.data or {}
+            devices = list(existing.get("devices", {}).values())
+            if not devices:
+                return
+
             device_galleries_by_device: dict[str, list[dict[str, Any]]] = {}
             for device in devices:
                 device_id = device["id"]
@@ -89,9 +108,41 @@ class CloudDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             user_galleries = await self.meural.get_user_galleries()
 
+            self._last_gallery_fetch = time.monotonic()
+
+            if self.data:
+                self.data["device_galleries"] = device_galleries_by_device
+                self.data["user_galleries"] = user_galleries
+                self.async_set_updated_data(self.data)
+
+            _LOGGER.debug(
+                "Meural Cloud: Gallery data refreshed (%d user galleries)",
+                len(user_galleries),
+            )
+        except (InvalidAuth, aiohttp.ClientError, asyncio.TimeoutError) as err:
+            _LOGGER.warning("Meural Cloud: Failed to refresh gallery data: %s", err)
+        finally:
+            self._gallery_refresh_in_progress = False
+
+    async def _async_update_data(self) -> dict[str, Any]:
+        """Fetch data from Meural cloud API."""
+        try:
+            # Only fetch device settings on the regular poll interval.
+            # Gallery data is fetched separately via async_refresh_galleries().
+            devices = await self.meural.get_user_devices()
+
+            # Preserve existing gallery data between polls
+            existing = self.data or {}
+            device_galleries = existing.get("device_galleries", {})
+            user_galleries = existing.get("user_galleries", [])
+
+            # Schedule a background gallery refresh if data is stale
+            if self.galleries_stale:
+                self.hass.async_create_task(self.async_refresh_galleries())
+
             return {
                 "devices": {str(device["id"]): device for device in devices},
-                "device_galleries": device_galleries_by_device,
+                "device_galleries": device_galleries,
                 "user_galleries": user_galleries,
             }
 

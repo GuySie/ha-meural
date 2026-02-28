@@ -519,6 +519,7 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         """Synchronize device with Meural server."""
         _LOGGER.info("Meural device %s: Synchronizing with Meural server", self.name)
         await self.meural.sync_device(self.meural_device_id)
+        await self.cloud_coordinator.async_refresh_galleries()
 
     async def async_play_random_playlist(self):
         """Pick a random gallery from all available galleries and play it."""
@@ -629,22 +630,35 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
     async def async_turn_on(self):
         """Resume Meural frame display."""
         await self.local_meural.send_key_resume()
+        # Optimistically mark as awake for immediate UI feedback.
+        # No immediate refresh — the device takes several seconds to wake up and would
+        # still report sleeping, overriding this update. The 10s poll will confirm.
+        self.local_coordinator._sleeping = False
+        self.async_write_ha_state()
 
     async def async_turn_off(self):
         """Suspend Meural frame display."""
         await self.local_meural.send_key_suspend()
+        # Optimistically mark as sleeping for immediate UI feedback; refresh confirms.
+        self.local_coordinator._sleeping = True
+        self.async_write_ha_state()
+        await self._refresh_after_user_action()
 
     async def async_media_pause(self):
         """Set duration to 0 (pause), store current duration in pause_duration."""
         self._pause_duration = self._meural_device["imageDuration"]
         _LOGGER.info("Meural device %s: Pausing player. Setting image duration on Meural server to 0", self.name)
         await self.meural.update_device(self.meural_device_id, {"imageDuration": 0})
+        self._meural_device["imageDuration"] = 0
+        self.async_write_ha_state()
 
     async def async_media_play(self):
         """Restore duration from pause_duration (play). Use duration 1800 if no pause_duration was stored."""
         duration = self._pause_duration or 1800
         _LOGGER.info("Meural device %s: Unpause player. Setting image duration on Meural server to %s", self.name, duration)
         await self.meural.update_device(self.meural_device_id, {"imageDuration": duration})
+        self._meural_device["imageDuration"] = duration
+        self.async_write_ha_state()
 
     async def async_set_shuffle(self, shuffle):
         """Enable/disable shuffling."""
@@ -787,6 +801,10 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
             if not self.local_coordinator.data or not self.cloud_coordinator.data:
                 _LOGGER.warning("Meural device %s: Browsing media. Coordinator data not available", self.name)
                 return response
+
+            # Refresh gallery data if stale (lazy load on browser open)
+            if self.cloud_coordinator.galleries_stale:
+                await self.cloud_coordinator.async_refresh_galleries()
 
             local_galleries = self.local_coordinator.data.get("galleries", [])
             device_galleries = self.cloud_coordinator.data.get("device_galleries", {}).get(self.meural_device_id, [])
