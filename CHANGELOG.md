@@ -5,14 +5,14 @@ All notable changes to the ha-meural Home Assistant integration will be document
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - 2026-02-15
+## [2.0.0] - 2026-02-28
 
 ### Breaking Changes
 - **None** - This release is fully backward compatible with v1.x installations
 
 ### Added
 - **DataUpdateCoordinator architecture**: Implemented modern coordinator pattern with dual coordinators (CloudDataUpdateCoordinator and LocalDataUpdateCoordinator)
-- **Dynamic polling intervals**: Cloud API polling adjusts from 60s when devices are awake to 600s (10 minutes) when all devices are sleeping
+- **Dynamic polling intervals**: Cloud API polling adjusts from 60s when devices are awake to 3600s (1 hour) when all devices are sleeping
 - **Comprehensive type hints**: Added type annotations throughout the codebase for better maintainability
 - **Better error recovery**: Improved exception handling with specific exception types
 - **Automatic reauth flow**: Authentication errors now trigger Home Assistant's reauth flow automatically
@@ -42,7 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Memory efficiency**: Fixed inefficient LocalMeural instance creation pattern
 - **aiohttp parameter error**: Fixed "unexpected keyword argument 'query'" by changing to correct 'params' parameter in both PyMeural and LocalMeural
 - **Cloud coordinator race condition**: Fixed issue where multiple devices could cause incorrect polling intervals by having each entity independently set the coordinator interval
-- **orientationMatch detection**: Fixed issue where device orientation changes with orientationMatch enabled wouldn't update artwork details in Home Assistant (device auto-switches items but local API doesn't reflect the change)
+- **orientationMatch detection**: Fixed issue where device orientation changes with orientationMatch enabled wouldn't update artwork details in Home Assistant. Uses gsensor data from local system API to detect physical rotation; reloads the current gallery to force `current_item` update since the local API doesn't reflect orientationMatch switches until a gallery reload
+- **Sleep state flickering**: Fixed transient connection failures incorrectly flipping device state to sleeping; now preserves last known sleep state on network errors to prevent STATE_PLAYING/STATE_OFF flickering
+- **play_media error handling**: Fixed missing early return after cloud API error in the item play handler, preventing subsequent local API call on already-failed operations
 - **Log format string**: Fixed malformed warning log message when local device contact fails, resolving "Bad logger message" errors in Home Assistant logs
 
 ### Security

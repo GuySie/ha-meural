@@ -31,17 +31,19 @@ To test changes, install the integration in a Home Assistant instance:
 
 The integration uses two DataUpdateCoordinators for efficient polling:
 
-**CloudDataUpdateCoordinator** (`coordinator.py:26-87`):
-- Polls Meural cloud API every 60 seconds (600 seconds when sleeping)
-- Fetches device information, device galleries, and user galleries
+**CloudDataUpdateCoordinator** (`coordinator.py:26-123`):
+- Polls Meural cloud API every 60 seconds, or 3600 seconds (1 hour) when all devices are sleeping
+- Fetches device information, device galleries, and user galleries (paginated, up to 1000 items)
 - Handles authentication errors and triggers reauth flow
 - Shared across all devices for a single account
+- Aggregates sleep state across all entities to determine polling interval
 
-**LocalDataUpdateCoordinator** (`coordinator.py:89-175`):
+**LocalDataUpdateCoordinator** (`coordinator.py:124-225`):
 - Polls local device API every 10 seconds
 - Each device has its own local coordinator instance
-- Fetches real-time state: sleep status, local galleries, gallery status
+- Fetches real-time state: sleep status, local galleries, gallery status, gsensor orientation
 - Gracefully handles offline devices without failing the integration
+- Preserves last known sleep state on transient connection failures (no flickering)
 - Returns cached data when device is unreachable
 
 ### Core Components
@@ -61,6 +63,9 @@ The integration uses two DataUpdateCoordinators for efficient polling:
 - Media player entity implementing standard Home Assistant media player features
 - Coordinates between cloud and local data sources
 - Registers custom services (set_brightness, preview_image, set_device_option, etc.)
+- Detects physical device rotation via gsensor changes when orientationMatch is enabled
+- Reloads current gallery after orientation change to force `current_item` update (local API limitation)
+- Updates thumbnails immediately after user navigation actions without waiting for next poll cycle
 
 ### Authentication Flow
 
@@ -72,11 +77,13 @@ The integration uses two DataUpdateCoordinators for efficient polling:
 
 ### Data Flow
 
-1. Cloud coordinator fetches devices and galleries from Meural API
-2. Local coordinator polls each device's local interface for real-time state
+1. Cloud coordinator fetches devices and galleries from Meural API (paginated)
+2. Local coordinator polls each device's local interface for real-time state including gsensor
 3. Media player entity subscribes to both coordinators
 4. Entity state derived from combination of cloud and local data
-5. Update intervals adjust dynamically (slower when device sleeping)
+5. Update intervals adjust dynamically (slower when all devices sleeping)
+6. gsensor changes trigger gallery reload to detect orientationMatch item switches
+7. User actions (next/prev track, playlist changes) trigger immediate local coordinator refresh
 
 ## Key Files
 
