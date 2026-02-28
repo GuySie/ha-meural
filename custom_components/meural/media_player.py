@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 import logging
 import asyncio
+import random
 from typing import Any
 
 import aiohttp
@@ -162,6 +163,12 @@ async def async_setup_entry(
         "synchronize",
         {},
         "async_synchronize",
+    )
+
+    platform.async_register_entity_service(
+        "play_random_playlist",
+        {},
+        "async_play_random_playlist",
     )
 
 class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEntity):
@@ -539,6 +546,27 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         """Synchronize device with Meural server."""
         _LOGGER.info("Meural device %s: Synchronizing with Meural server", self.name)
         await self.meural.sync_device(self.meural_device_id)
+
+    async def async_play_random_playlist(self):
+        """Pick a random gallery from all available galleries and play it."""
+        if not self.local_coordinator.data:
+            _LOGGER.warning("Meural device %s: Play random playlist. No local data available", self.name)
+            return
+
+        galleries = self.local_coordinator.data.get("galleries", [])
+        if not galleries:
+            _LOGGER.warning("Meural device %s: Play random playlist. No galleries available", self.name)
+            return
+
+        gallery = random.choice(galleries)
+        _LOGGER.info(
+            "Meural device %s: Play random playlist. Playing random gallery %s, ID %s",
+            self.name,
+            gallery["name"],
+            gallery["id"],
+        )
+        await self.local_meural.send_change_gallery(gallery["id"])
+        await self._refresh_after_user_action()
 
     async def _refresh_after_user_action(self) -> None:
         """Refresh coordinator data immediately after user action to update thumbnail."""

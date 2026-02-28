@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **None** - This release is fully backward compatible with v1.x installations
 
 ### Added
+- **`meural.play_random_playlist` service**: New service that picks a random playlist from all playlists currently loaded on the Canvas and plays it
 - **DataUpdateCoordinator architecture**: Implemented modern coordinator pattern with dual coordinators (CloudDataUpdateCoordinator and LocalDataUpdateCoordinator)
 - **Dynamic polling intervals**: Cloud API polling adjusts from 60s when devices are awake to 3600s (1 hour) when all devices are sleeping
 - **Comprehensive type hints**: Added type annotations throughout the codebase for better maintainability

@@ -112,6 +112,7 @@ Beyond standard media player services, the integration provides:
 - `meural.synchronize`: Sync Meural server with Canvas
 - `meural.preview_image`: Display image from URL temporarily
 - `meural.set_device_option`: Configure Canvas options (orientation, shuffle, duration, etc.)
+- `meural.play_random_playlist`: Pick a random playlist from all playlists loaded on the Canvas and play it
 
 All services are fully documented in `services.yaml`.
 

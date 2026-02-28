@@ -1,5 +1,11 @@
 # Describes the format for available Meural services
 
+play_random_playlist:
+  description: Pick a random playlist from all available playlists on the Meural Canvas and play it.
+  fields:
+    entity_id:
+      description: Entity ID of the Meural Canvas to update.
+      example: "media_player.meural-123"
 set_brightness:
   description: Change backlight brightness setting of the Meural Canvas.
   fields:
