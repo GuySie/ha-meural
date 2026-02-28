@@ -179,27 +179,39 @@ class LocalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             galleries = await self.local_meural.send_get_galleries()
             gallery_status = await self.local_meural.send_get_gallery_status()
 
+            # Get gsensor orientation for orientationMatch detection.
+            # Failure here is non-critical; omit the key so callers can detect absence.
+            gsensor = None
+            try:
+                system_info = await self.local_meural.send_get_system()
+                gsensor = system_info.get("gsensor")
+            except (aiohttp.ClientError, asyncio.TimeoutError):
+                pass
+
             return {
                 "sleeping": False,
                 "galleries": sorted(galleries, key=lambda i: i["name"]),
                 "gallery_status": gallery_status,
+                "gsensor": gsensor,
             }
 
         except (DeviceTurnedOff, aiohttp.ClientError, asyncio.TimeoutError) as err:
-            # Device offline or network error - set sleeping but don't fail
+            # Network or connection error - preserve last known sleeping state to avoid
+            # flickering between STATE_PLAYING and STATE_OFF on transient failures.
+            # DeviceTurnedOff (ClientConnectorError) is also transient - the local web
+            # server remains running during Meural sleep mode, so this only means the
+            # device temporarily dropped off the network, not that it is genuinely sleeping.
             _LOGGER.warning(
                 "Meural device %s: Failed to contact local device (%s)",
                 self.device.get("alias", self.device_id),
                 err,
             )
-            self._sleeping = True
-            # Return last known data or minimal data
             _LOGGER.debug(
                 "Meural device %s: Returning cached data due to connection failure",
                 self.device.get("alias", self.device_id),
             )
             return {
-                "sleeping": True,
+                "sleeping": self._sleeping,
                 "galleries": self.data.get("galleries", []) if self.data else [],
                 "gallery_status": self.data.get("gallery_status", {}) if self.data else {},
             }
