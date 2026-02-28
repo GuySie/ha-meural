@@ -94,7 +94,7 @@ class PyMeural:
 
     async def request(self, method: str, path: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
         fetched_new_token = self.token is None
-        if self.token == None:
+        if self.token is None:
             await self.get_new_token()
         url = f"{BASE_URL}{path}"
         kwargs = {}
@@ -125,7 +125,7 @@ class PyMeural:
                 self.token = None
                 return await self.request(method, path, data)
             except Exception as err:
-                _LOGGER.error('Meural: Sending Request failed. Raising: %s' %err)
+                _LOGGER.error('Meural: Sending Request failed. Raising: %s', err)
                 raise
         response = await resp.json()
         return response["data"]

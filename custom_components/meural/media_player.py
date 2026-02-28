@@ -190,7 +190,6 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         self._meural_device = device
         self._current_item: dict[str, Any] = {}
         self._pause_duration = 0
-        self._abort = False
         self._last_fetched_item_id: int | None = None
         self._last_gsensor: str | None = None
 
@@ -287,22 +286,10 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         """Handle updated data from the cloud coordinator."""
         device_id = self.meural_device_id
         if device_id in self.coordinator.data["devices"]:
-            old_device = self._meural_device
             self._meural_device = self.coordinator.data["devices"][device_id]
 
             # Update local coordinator's device reference
             self.local_coordinator.update_device(self._meural_device)
-
-            # Cloud coordinator now manages interval based on all devices' sleep states
-
-            # Check if orientation changed (requires special handling)
-            if old_device.get("orientation") != self._meural_device.get("orientation"):
-                _LOGGER.debug(
-                    "Meural device %s: Orientation changed from %s to %s",
-                    self.name,
-                    old_device.get("orientation"),
-                    self._meural_device.get("orientation"),
-                )
 
         self.async_write_ha_state()
 
@@ -424,46 +411,32 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
     @property
     def media_summary(self):
         """Return the summary of current playing media."""
-        if 'description' in self._current_item:
-            return self._current_item["description"]
-        else:
-            return None
+        return self._current_item.get("description")
 
     @property
     def media_title(self):
         """Return the title of current playing media."""
-        if 'name' in self._current_item:
-            return self._current_item["name"]
-        else:
-            return None
+        return self._current_item.get("name")
 
     @property
     def media_artist(self):
         """Artist of current playing media. Replaced with artist name and the artwork year."""
-        if (not self._current_item) is False:
-            if self._current_item["artistName"] is not None:
-                if self._current_item["year"] is not None:
-                    return str(self._current_item["artistName"]) + ", " + str(self._current_item["year"])
-                else:
-                    return str(self._current_item["artistName"])
-            elif self._current_item["author"] is not None:
-                if self._current_item["year"] is not None:
-                    return str(self._current_item["author"]) + ", " + str(self._current_item["year"])
-                else:
-                    return str(self._current_item["author"])
-            elif self._current_item["year"] is not None:
-                return "Unknown, " + str(self._current_item["year"])
+        if not self._current_item:
             return None
-        else:
-            return None
+        artist = self._current_item.get("artistName") or self._current_item.get("author")
+        year = self._current_item.get("year")
+        if artist and year:
+            return f"{artist}, {year}"
+        if artist:
+            return str(artist)
+        if year:
+            return f"Unknown, {year}"
+        return None
 
     @property
     def media_image_url(self):
         """Image url of current playing media."""
-        if 'image' in self._current_item:
-            return self._current_item["image"]
-        else:
-            return None
+        return self._current_item.get("image")
 
     @property
     def media_image_remotely_accessible(self) -> bool:
@@ -637,7 +610,7 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
 
     async def async_media_previous_track(self) -> None:
         """Send previous image command."""
-        if self._meural_device["gestureFlip"] == True:
+        if self._meural_device["gestureFlip"]:
             await self.local_meural.send_key_right()
         else:
             await self.local_meural.send_key_left()
@@ -646,7 +619,7 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
 
     async def async_media_next_track(self) -> None:
         """Send next image command."""
-        if self._meural_device["gestureFlip"] == True:
+        if self._meural_device["gestureFlip"]:
             await self.local_meural.send_key_left()
         else:
             await self.local_meural.send_key_right()
@@ -669,17 +642,16 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
 
     async def async_media_play(self):
         """Restore duration from pause_duration (play). Use duration 1800 if no pause_duration was stored."""
-        if self._pause_duration != 0:
-            _LOGGER.info("Meural device %s: Unpause player. Setting image duration on Meural server to %s", self.name, self._pause_duration)
-            await self.meural.update_device(self.meural_device_id, {"imageDuration": self._pause_duration})
-        else:
-            _LOGGER.info("Meural device %s: Unpause player. Setting image duration on Meural server to 1800", self.name)
-            await self.meural.update_device(self.meural_device_id, {"imageDuration": 1800})
+        duration = self._pause_duration or 1800
+        _LOGGER.info("Meural device %s: Unpause player. Setting image duration on Meural server to %s", self.name, duration)
+        await self.meural.update_device(self.meural_device_id, {"imageDuration": duration})
 
     async def async_set_shuffle(self, shuffle):
         """Enable/disable shuffling."""
         _LOGGER.info("Meural device %s: Shuffling player. Setting shuffle on Meural server to %s", self.name, shuffle)
         await self.meural.update_device(self.meural_device_id, {"imageShuffle": shuffle})
+        self._meural_device["imageShuffle"] = shuffle
+        self.async_write_ha_state()
 
     async def async_play_media(self, media_type, media_id, **kwargs):
         """Play media from media_source."""
@@ -822,7 +794,9 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
 
             # Combine device and user galleries
             remote_galleries = device_galleries.copy()
-            [remote_galleries.append(x) for x in user_galleries if x not in remote_galleries]
+            for x in user_galleries:
+                if x not in remote_galleries:
+                    remote_galleries.append(x)
 
             _LOGGER.info("Meural device %s: Browsing media. Has %d local galleries, %d remote galleries", self.name, len(local_galleries), len(remote_galleries))
 

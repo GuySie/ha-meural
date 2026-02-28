@@ -59,22 +59,10 @@ class CloudDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def _update_polling_interval(self) -> None:
         """Update polling interval based on all devices' sleep states."""
-        # If any device is awake, use fast interval
-        # Only use slow interval if ALL devices are sleeping or no devices registered
-        any_awake = any(
-            not coord.sleeping for coord in self._local_coordinators.values()
-        )
+        awake_count = sum(1 for coord in self._local_coordinators.values() if not coord.sleeping)
+        new_interval = timedelta(seconds=CLOUD_UPDATE_INTERVAL if awake_count else CLOUD_UPDATE_INTERVAL_SLEEPING)
 
-        if any_awake:
-            new_interval = timedelta(seconds=CLOUD_UPDATE_INTERVAL)
-        else:
-            new_interval = timedelta(seconds=CLOUD_UPDATE_INTERVAL_SLEEPING)
-
-        # Only update if interval actually changed to avoid unnecessary refreshes
         if self.update_interval != new_interval:
-            awake_count = sum(
-                1 for coord in self._local_coordinators.values() if not coord.sleeping
-            )
             _LOGGER.debug(
                 "Meural Cloud: Adjusting update interval to %s seconds (%d awake devices)",
                 new_interval.total_seconds(),
@@ -135,7 +123,6 @@ class LocalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.device_id = str(device["id"])
         self.local_meural = LocalMeural(device, session)
         self._sleeping = True
-        self._enabled = True
 
         super().__init__(
             hass,
@@ -149,10 +136,6 @@ class LocalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.device = device
         self.local_meural.device = device
 
-    def set_enabled(self, enabled: bool) -> None:
-        """Enable or disable updates."""
-        self._enabled = enabled
-
     @property
     def sleeping(self) -> bool:
         """Return if device is sleeping."""
@@ -160,19 +143,17 @@ class LocalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from Meural local device API."""
-        if not self._enabled:
-            return self.data or {}
-
         try:
             # Get sleep status
             self._sleeping = await self.local_meural.send_get_sleep()
 
             if self._sleeping:
                 # Device is sleeping, return minimal data
+                cached = self.data or {}
                 return {
                     "sleeping": True,
-                    "galleries": self.data.get("galleries", []) if self.data else [],
-                    "gallery_status": self.data.get("gallery_status", {}) if self.data else {},
+                    "galleries": cached.get("galleries", []),
+                    "gallery_status": cached.get("gallery_status", {}),
                 }
 
             # Device is awake, get full data
@@ -210,10 +191,11 @@ class LocalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "Meural device %s: Returning cached data due to connection failure",
                 self.device.get("alias", self.device_id),
             )
+            cached = self.data or {}
             return {
                 "sleeping": self._sleeping,
-                "galleries": self.data.get("galleries", []) if self.data else [],
-                "gallery_status": self.data.get("gallery_status", {}) if self.data else {},
+                "galleries": cached.get("galleries", []),
+                "gallery_status": cached.get("gallery_status", {}),
             }
         except Exception as err:
             # Unexpected error
