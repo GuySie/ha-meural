@@ -1,35 +1,40 @@
+from __future__ import annotations
+
 from datetime import timedelta
 import logging
+import asyncio
+import random
+from typing import Any
+
+import aiohttp
 import voluptuous as vol
 
-try:
-    from homeassistant.components.media_player import MediaPlayerEntity
-except ImportError:
-    from homeassistant.components.media_player import MediaPlayerDevice as MediaPlayerEntity
-
+from homeassistant.components.media_player import MediaPlayerEntity
 from homeassistant.auth.models import RefreshToken
 from homeassistant.components import media_source
 from homeassistant.components.http.auth import async_sign_path
 from homeassistant.components.media_player import BrowseError, BrowseMedia
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_platform
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.network import get_url
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.components.media_player import MediaClass, MediaType
 
 from homeassistant.const import (
     STATE_PLAYING,
     STATE_PAUSED,
     STATE_OFF,
-    MAJOR_VERSION,
-    MINOR_VERSION,
 )
 
 from homeassistant.components.media_player.const import (
     MediaPlayerEntityFeature
 )
 
-from .const import DOMAIN
-from .pymeural import LocalMeural
+from .const import DOMAIN, SD_CARD_FOLDER_MAX_ID
+from .coordinator import CloudDataUpdateCoordinator, LocalDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,12 +51,44 @@ MEURAL_SUPPORT = (
     | MediaPlayerEntityFeature.TURN_ON
 )
 
-async def async_setup_entry(hass, config_entry, async_add_entities):
-    meural = hass.data[DOMAIN][config_entry.entry_id]
-    devices = await meural.get_user_devices()
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up Meural media player entities."""
+    entry_data = hass.data[DOMAIN][config_entry.entry_id]
+    meural = entry_data["meural"]
+    cloud_coordinator: CloudDataUpdateCoordinator = entry_data["cloud_coordinator"]
+
+    # Get devices from cloud coordinator data
+    devices = list(cloud_coordinator.data["devices"].values())
+
+    # Create entities with local coordinators
+    entities = []
     for device in devices:
-        _LOGGER.info("Adding Meural device %s" % (device['alias'], ))
-        async_add_entities([MeuralEntity(meural, device), ])
+        _LOGGER.info("Adding Meural device %s", device['alias'])
+
+        # Create local coordinator for this device
+        local_coordinator = LocalDataUpdateCoordinator(
+            hass,
+            device,
+            async_get_clientsession(hass),
+        )
+
+        # Perform first refresh for local coordinator
+        await local_coordinator.async_config_entry_first_refresh()
+
+        entities.append(
+            MeuralEntity(
+                meural,
+                cloud_coordinator,
+                local_coordinator,
+                device,
+            )
+        )
+
+    async_add_entities(entities)
 
     platform = entity_platform.current_platform.get()
 
@@ -128,188 +165,272 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         "async_synchronize",
     )
 
-class MeuralEntity(MediaPlayerEntity):
+    platform.async_register_entity_service(
+        "play_random_playlist",
+        {},
+        "async_play_random_playlist",
+    )
+
+    platform.async_register_entity_service(
+        "load_playlist",
+        {
+            vol.Optional("gallery_id"): vol.Coerce(int),
+            vol.Optional("gallery_name"): str,
+        },
+        "async_load_playlist",
+    )
+
+class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEntity):
     """Representation of a Meural entity."""
 
-    def __init__(self, meural, device):
+    def __init__(
+        self,
+        meural,
+        cloud_coordinator: CloudDataUpdateCoordinator,
+        local_coordinator: LocalDataUpdateCoordinator,
+        device: dict[str, Any],
+    ) -> None:
+        """Initialize the Meural entity."""
+        super().__init__(cloud_coordinator)
+
         self.meural = meural
+        self.cloud_coordinator = cloud_coordinator
+        self.local_coordinator = local_coordinator
         self._meural_device = device
-        self._galleries = []
-        self._remote_galleries = []
-        self._gallery_status = []
-        self._current_item = {}
-
+        self._current_item: dict[str, Any] = {}
         self._pause_duration = 0
-        self._sleep = True
-        self._abort = False
+        self._last_fetched_item_id: int | None = None
+        self._last_gsensor: str | None = None
+
+        # Start listening to local coordinator updates
+        self.async_on_remove(
+            self.local_coordinator.async_add_listener(self._handle_local_coordinator_update)
+        )
+
+        # Unregister local coordinator when entity is removed
+        self.async_on_remove(
+            lambda: self.cloud_coordinator.unregister_local_coordinator(
+                self.meural_device_id
+            )
+        )
 
     @property
-    def meural_device_id(self):
-        return self._meural_device["id"]
+    def meural_device_id(self) -> str:
+        """Return the device ID."""
+        return str(self._meural_device["id"])
 
     @property
-    def meural_device_name(self):
+    def meural_device_name(self) -> str:
+        """Return the device name."""
         return self._meural_device["name"]
 
     @property
     def local_meural(self):
-        return LocalMeural(
-            self._meural_device,
-            async_get_clientsession(self.hass)
+        """Return the LocalMeural instance from coordinator."""
+        return self.local_coordinator.local_meural
+
+    async def async_added_to_hass(self) -> None:
+        """Run when entity is added to hass."""
+        await super().async_added_to_hass()
+
+        # Register this entity's local coordinator with cloud coordinator
+        self.cloud_coordinator.register_local_coordinator(
+            self.meural_device_id, self.local_coordinator
         )
 
-    async def async_added_to_hass(self):
-        """Set up default image duration."""
-        try:
-            _LOGGER.info("Meural device %s: Setup. Getting device information from Meural server", self.name)
-            self._meural_device = await self.meural.get_device(self.meural_device_id)
-            self._pause_duration = self._meural_device["imageDuration"]
-        except:
-            _LOGGER.error("Meural device %s: Setup. Error while contacting Meural server, aborting setup", self.name, exc_info=True)
-            self._abort = True
+        # Get device info from cloud coordinator
+        device_id = self.meural_device_id
+        if device_id in self.cloud_coordinator.data["devices"]:
+            self._meural_device = self.cloud_coordinator.data["devices"][device_id]
+            self._pause_duration = self._meural_device.get("imageDuration", 0)
+            _LOGGER.info("Meural device %s: Setup completed", self.name)
+
+        # Fetch initial current item if needed
+        await self._fetch_current_item_if_needed()
+
+    async def _fetch_current_item_if_needed(self) -> None:
+        """Fetch current item information if not an SD-card folder."""
+        if not self.local_coordinator.data:
             return
 
-        """Set up local galleries."""
-        try:
-            localgalleries = await self.local_meural.send_get_galleries()
-            self._galleries = sorted(localgalleries, key = lambda i: i["name"])
-            _LOGGER.info("Meural device %s: Setup. Has %d local galleries on local device" % (self.name, len(self._galleries)))
-        except:
-            _LOGGER.error("Meural device %s: Setup. Error while contacting local device, aborting setup", self.name, exc_info=True)
-            self._abort = True
+        gallery_status = self.local_coordinator.data.get("gallery_status", {})
+        if not gallery_status:
             return
 
-        """Set up remote galleries."""
-        try:
-            device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
-            _LOGGER.info("Meural device %s: Setup. Getting %d device galleries from Meural server", self.name, len(device_galleries))
-            user_galleries = await self.meural.get_user_galleries()
-            _LOGGER.info("Meural device %s: Setup. Getting %d user galleries from Meural server", self.name, len(user_galleries))
-            [device_galleries.append(x) for x in user_galleries if x not in device_galleries]
-            self._remote_galleries = device_galleries
-            _LOGGER.info("Meural device %s: Setup. Has %d unique remote galleries on Meural server" % (self.name, len(self._remote_galleries)))
-        except:
-            _LOGGER.error("Meural device %s: Setup. Error while contacting Meural server, aborting setup", self.name, exc_info=True)
-            self._abort = True
-            return
-
-        """Check if current gallery is an SD-card folder (ID 1, 2, 3 or 4) and set up first item to display."""
-        self._gallery_status = await self.local_meural.send_get_gallery_status()
-        current_gallery = int(self._gallery_status["current_gallery"])
-        if current_gallery > 4:
+        current_gallery = int(gallery_status.get("current_gallery", 0))
+        if current_gallery > SD_CARD_FOLDER_MAX_ID:
             try:
-                self._current_item = await self.meural.get_item(int(self._gallery_status["current_item"]))
-            except:
-                _LOGGER.warning("Meural device %s: Setup. Error while getting information of currently displayed item from Meural server, resetting item information",  self.name, exc_info=True)
+                current_item_id = int(gallery_status.get("current_item", 0))
+                # Only fetch if item ID has changed to avoid unnecessary cloud API calls
+                if current_item_id and current_item_id != self._last_fetched_item_id:
+                    _LOGGER.debug(
+                        "Meural device %s: Fetching cloud data for item %s to update thumbnail",
+                        self.name,
+                        current_item_id,
+                    )
+                    self._current_item = await self.meural.get_item(current_item_id)
+                    self._last_fetched_item_id = current_item_id
+                    # Update UI with new thumbnail
+                    self.async_write_ha_state()
+            except (aiohttp.ClientError, asyncio.TimeoutError, KeyError) as err:
+                _LOGGER.warning(
+                    "Meural device %s: Error getting current item information: %s",
+                    self.name,
+                    err,
+                )
                 self._current_item = {}
+                # Reset last fetched ID on error to retry next time
+                self._last_fetched_item_id = None
         else:
-            _LOGGER.info("Meural device %s: Setup. Gallery %s is a local SD-card folder, resetting item information", self.name, current_gallery)
+            _LOGGER.debug(
+                "Meural device %s: Gallery %s is a local SD-card folder",
+                self.name,
+                current_gallery,
+            )
             self._current_item = {}
+            # Reset last fetched ID when in SD card folder
+            self._last_fetched_item_id = None
 
-        _LOGGER.info("Meural device %s: Setup has completed",  self.name)
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the cloud coordinator."""
+        device_id = self.meural_device_id
+        if device_id in self.coordinator.data["devices"]:
+            self._meural_device = self.coordinator.data["devices"][device_id]
 
-    async def async_update(self):
-        if self._abort == True:
-            _LOGGER.debug("Meural device %s: Updating. Setup was aborted, device will not be updated", self.name)
-            return
+            # Update local coordinator's device reference
+            self.local_coordinator.update_device(self._meural_device)
 
-        try:
-            self._sleep = await self.local_meural.send_get_sleep()
-        except:
-            _LOGGER.warning("Meural device %s: Updating. Error while contacting local device", self.name, exc_info=True)
-            self._sleep = True
+        self.async_write_ha_state()
 
-        """Only poll the Meural API if the device is not sleeping."""
-        if self._sleep == False:
-            """Update local galleries."""
-            localgalleries = await self.local_meural.send_get_galleries()
-            self._galleries = sorted(localgalleries, key = lambda i: i["name"])
-            """Save orientation we had before update and poll new remote state."""
-            old_orientation = self._meural_device["orientation"]
-            self._meural_device = await self.meural.get_device(self.meural_device_id)
-            """Save item we had before update and poll new local state."""
-            old_item = int(self._gallery_status["current_item"])
-            self._gallery_status = await self.local_meural.send_get_gallery_status()
-            """Check if current gallery is based on a folder on the SD-card (ID 1, 2, 3 or 4)."""
-            current_gallery = int(self._gallery_status["current_gallery"])
-            if current_gallery > 4:
+    def _handle_local_coordinator_update(self) -> None:
+        """Handle updated data from the local coordinator."""
+        # Notify cloud coordinator that sleep state may have changed
+        self.cloud_coordinator.notify_sleep_state_changed()
 
-                """Check if current item or orientation have changed."""
-                new_item = int(self._gallery_status["current_item"])
-                new_orientation = self._meural_device["orientation"]
-                if old_item != new_item:
-                    """Only get item information if current item has changed since last poll."""
-                    _LOGGER.info("Meural device %s: Updating. Item changed. Getting information from Meural server for item %s", self.name, new_item)
-                    try:
-                        self._current_item = await self.meural.get_item(new_item)
-                    except:
-                        _LOGGER.warning("Meural device %s: Updating. Error while getting information of currently displayed item %s from Meural server, resetting item information", self.name, new_item, exc_info=True)
-                        self._current_item = {}
-                elif old_orientation != new_orientation:
-                    """If orientationMatch is enabled, current item in gallery_status will not reflect item displayed after orientation changes. Force update of gallery_status by reloading gallery."""
-                    _LOGGER.info("Meural device %s: Updating. Orientation has changed, reloading gallery to force update of currently displayed item", self.name)
-                    await self.local_meural.send_change_gallery(self._gallery_status["current_gallery"])
-            else:
-                _LOGGER.info("Meural device %s: Updating. Gallery %s is a local SD-card folder, resetting item information", self.name, current_gallery)
+        if self.local_coordinator.data:
+            # Detect physical rotation via gsensor when orientationMatch is enabled.
+            # gallery_status.current_item does not update on orientationMatch switches,
+            # so we use gsensor changes as the trigger to clear stale item metadata.
+            gsensor = self.local_coordinator.data.get("gsensor")
+            if (
+                gsensor is not None
+                and self._last_gsensor is not None
+                and gsensor != self._last_gsensor
+                and self._meural_device.get("orientationMatch")
+            ):
+                _LOGGER.debug(
+                    "Meural device %s: gsensor changed from %s to %s with orientationMatch enabled, reloading gallery to force item update",
+                    self.name,
+                    self._last_gsensor,
+                    gsensor,
+                )
                 self._current_item = {}
+                self._last_fetched_item_id = None
+                self.hass.async_create_task(self._reload_gallery_on_orientation_change())
+            else:
+                # When local data updates, fetch current item if it changed
+                gallery_status = self.local_coordinator.data.get("gallery_status", {})
+                if gallery_status:
+                    # Schedule fetching current item in the background
+                    self.hass.async_create_task(self._fetch_current_item_if_needed())
+            if gsensor is not None:
+                self._last_gsensor = gsensor
+
+        self.async_write_ha_state()
+
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Name of the device."""
         return self._meural_device["alias"]
 
     @property
-    def unique_id(self):
+    def unique_id(self) -> str:
         """Unique ID of the device."""
         return self._meural_device["productKey"]
 
     @property
-    def device_info(self):
+    def device_info(self) -> dict[str, Any]:
+        """Return device information."""
         return {
             "identifiers": {
-                # Serial numbers are unique identifiers within a specific domain
                 (DOMAIN, self.unique_id)
             },
             "name": self.name,
             "manufacturer": "NETGEAR",
             "model": self._meural_device["frameModel"]["name"],
             "sw_version": self._meural_device["version"],
-            "configuration_url": "http://" + self._meural_device["localIp"] + "/remote/",
+            "configuration_url": f"http://{self._meural_device['localIp']}/remote/",
         }
 
     @property
-    def available(self):
-        """Device available."""
-        return self._meural_device["status"] != "offline"
+    def available(self) -> bool:
+        """Return if entity is available."""
+        # Entity is available if coordinators are working and device is not offline
+        return (
+            self.coordinator.last_update_success
+            and self.local_coordinator.last_update_success
+            and self._meural_device.get("status") != "offline"
+        )
 
     @property
-    def state(self):
+    def state(self) -> str:
         """Return the state of the entity."""
-        if self._sleep == True:
+        if self.local_coordinator.sleeping:
             return STATE_OFF
-        elif self._meural_device["imageDuration"] == 0:
+        elif self._meural_device.get("imageDuration", 0) == 0:
             return STATE_PAUSED
         return STATE_PLAYING
 
     @property
-    def source(self):
+    def source(self) -> str | None:
         """Name of the current playlist."""
-        return self._gallery_status["current_gallery_name"]
+        if not self.local_coordinator.data:
+            return None
+        gallery_status = self.local_coordinator.data.get("gallery_status", {})
+        return gallery_status.get("current_gallery_name")
 
     @property
-    def supported_features(self):
+    def supported_features(self) -> int:
         """Flag media player features that are supported."""
         return MEURAL_SUPPORT
 
-    @property
-    def source_list(self):
-        """List of available playlists."""
-        return [g["name"] for g in self._galleries]
+    def _cloud_only_galleries(self) -> list[dict]:
+        """Return cloud galleries not yet loaded on this device."""
+        if not self.cloud_coordinator.data or not self.local_coordinator.data:
+            return []
+
+        local_ids = {int(g["id"]) for g in self.local_coordinator.data.get("galleries", [])}
+
+        device_galleries = self.cloud_coordinator.data.get("device_galleries", {}).get(self.meural_device_id, [])
+        user_galleries = self.cloud_coordinator.data.get("user_galleries", [])
+
+        seen_ids: set[int] = set()
+        remote_galleries: list[dict] = []
+        for g in device_galleries + user_galleries:
+            if g["id"] not in seen_ids:
+                seen_ids.add(g["id"])
+                remote_galleries.append(g)
+
+        return [g for g in remote_galleries if g["id"] not in local_ids]
 
     @property
-    def media_content_id(self):
+    def source_list(self) -> list[str]:
+        """List of available playlists."""
+        result = []
+        if self.local_coordinator.data:
+            result = [g["name"] for g in self.local_coordinator.data.get("galleries", [])]
+        result += [g["name"] for g in self._cloud_only_galleries()]
+        return result
+
+    @property
+    def media_content_id(self) -> int | None:
         """Return the content ID of current playing media."""
-        return int(self._gallery_status["current_item"])
+        if not self.local_coordinator.data:
+            return None
+        gallery_status = self.local_coordinator.data.get("gallery_status", {})
+        current_item = gallery_status.get("current_item")
+        return int(current_item) if current_item is not None else None
 
     @property
     def media_content_type(self):
@@ -319,46 +440,32 @@ class MeuralEntity(MediaPlayerEntity):
     @property
     def media_summary(self):
         """Return the summary of current playing media."""
-        if 'description' in self._current_item:
-            return self._current_item["description"]
-        else:
-            return None
+        return self._current_item.get("description")
 
     @property
     def media_title(self):
         """Return the title of current playing media."""
-        if 'name' in self._current_item:
-            return self._current_item["name"]
-        else:
-            return None
+        return self._current_item.get("name")
 
     @property
     def media_artist(self):
         """Artist of current playing media. Replaced with artist name and the artwork year."""
-        if (not self._current_item) is False:
-            if self._current_item["artistName"] is not None:
-                if self._current_item["year"] is not None:
-                    return str(self._current_item["artistName"]) + ", " + str(self._current_item["year"])
-                else:
-                    return str(self._current_item["artistName"])
-            elif self._current_item["author"] is not None:
-                if self._current_item["year"] is not None:
-                    return str(self._current_item["author"]) + ", " + str(self._current_item["year"])
-                else:
-                    return str(self._current_item["author"])
-            elif self._current_item["year"] is not None:
-                return "Unknown, " + str(self._current_item["year"])
+        if not self._current_item:
             return None
-        else:
-            return None
+        artist = self._current_item.get("artistName") or self._current_item.get("author")
+        year = self._current_item.get("year")
+        if artist and year:
+            return f"{artist}, {year}"
+        if artist:
+            return str(artist)
+        if year:
+            return f"Unknown, {year}"
+        return None
 
     @property
     def media_image_url(self):
         """Image url of current playing media."""
-        if 'image' in self._current_item:
-            return self._current_item["image"]
-        else:
-            return None
+        return self._current_item.get("image")
 
     @property
     def media_image_remotely_accessible(self) -> bool:
@@ -441,57 +548,197 @@ class MeuralEntity(MediaPlayerEntity):
         """Synchronize device with Meural server."""
         _LOGGER.info("Meural device %s: Synchronizing with Meural server", self.name)
         await self.meural.sync_device(self.meural_device_id)
+        await self.cloud_coordinator.async_refresh_galleries()
 
-    async def async_select_source(self, source):
+    async def async_play_random_playlist(self):
+        """Pick a random gallery from all available galleries and play it."""
+        if not self.local_coordinator.data:
+            _LOGGER.warning("Meural device %s: Play random playlist. No local data available", self.name)
+            return
+
+        galleries = self.local_coordinator.data.get("galleries", [])
+        if not galleries:
+            _LOGGER.warning("Meural device %s: Play random playlist. No galleries available", self.name)
+            return
+
+        gallery_status = self.local_coordinator.data.get("gallery_status", {})
+        current_gallery_id = str(gallery_status.get("current_gallery", ""))
+
+        candidate_galleries = [g for g in galleries if str(g["id"]) != current_gallery_id]
+        if not candidate_galleries:
+            # Only one gallery available; play it regardless
+            candidate_galleries = galleries
+
+        gallery = random.choice(candidate_galleries)
+        _LOGGER.info(
+            "Meural device %s: Play random playlist. Playing random gallery %s, ID %s",
+            self.name,
+            gallery["name"],
+            gallery["id"],
+        )
+        await self.local_meural.send_change_gallery(gallery["id"])
+        await self._refresh_after_user_action()
+
+    async def async_load_playlist(self, gallery_id=None, gallery_name=None):
+        """Load the latest cloud version of a gallery onto the device."""
+        if gallery_id is None and gallery_name is None:
+            _LOGGER.error("Meural device %s: Load playlist. Must provide gallery_id or gallery_name", self.name)
+            return
+
+        resolved_id = gallery_id
+
+        if resolved_id is None:
+            # Look up by name in cloud coordinator data
+            device_galleries = self.cloud_coordinator.data.get("device_galleries", {}).get(self.meural_device_id, [])
+            user_galleries = self.cloud_coordinator.data.get("user_galleries", [])
+            seen_ids: set[int] = set()
+            all_galleries: list[dict] = []
+            for g in device_galleries + user_galleries:
+                if g["id"] not in seen_ids:
+                    seen_ids.add(g["id"])
+                    all_galleries.append(g)
+            match = next((g for g in all_galleries if g["name"] == gallery_name), None)
+            if match is None:
+                available_names = [g["name"] for g in all_galleries]
+                _LOGGER.error(
+                    "Meural device %s: Load playlist. Gallery '%s' not found in cloud data. Available galleries: %s",
+                    self.name,
+                    gallery_name,
+                    available_names,
+                )
+                return
+            resolved_id = match["id"]
+
+        _LOGGER.info(
+            "Meural device %s: Load playlist. Loading gallery ID %s from cloud",
+            self.name,
+            resolved_id,
+        )
+        await self.meural.device_load_gallery(self.meural_device_id, resolved_id)
+        await self._refresh_after_user_action()
+
+    async def _refresh_after_user_action(self) -> None:
+        """Refresh coordinator data immediately after user action to update thumbnail."""
+        # Give device a moment to process the command
+        await asyncio.sleep(0.5)
+
+        # Force immediate refresh for user-initiated actions (bypasses throttling)
+        # This will automatically trigger _fetch_current_item_if_needed() via the coordinator update listener
+        await self.local_coordinator.async_refresh()
+
+    async def _reload_gallery_on_orientation_change(self) -> None:
+        """Reload the current gallery after an orientationMatch rotation to force item update.
+
+        When the device physically rotates with orientationMatch enabled, it switches to an
+        orientation-appropriate item internally but gallery_status.current_item never updates
+        via the local API until the gallery naturally advances. Reloading the same gallery
+        forces the device to report the correct current_item.
+        """
+        if not self.local_coordinator.data:
+            return
+        gallery_status = self.local_coordinator.data.get("gallery_status", {})
+        current_gallery_id = gallery_status.get("current_gallery")
+        if not current_gallery_id or int(current_gallery_id) <= SD_CARD_FOLDER_MAX_ID:
+            return
+        _LOGGER.debug(
+            "Meural device %s: Reloading gallery %s to force current_item update after orientation change",
+            self.name,
+            current_gallery_id,
+        )
+        try:
+            # Wait for the orientation transition to complete before reloading.
+            # The transition animation takes several seconds; tune this if the reload
+            # still interrupts the transition or takes too long to respond.
+            await asyncio.sleep(5.0)
+            await self.local_meural.send_change_gallery(current_gallery_id)
+            await asyncio.sleep(1.0)
+            await self.local_coordinator.async_refresh()
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            _LOGGER.warning(
+                "Meural device %s: Error reloading gallery after orientation change: %s",
+                self.name,
+                err,
+            )
+
+    async def async_select_source(self, source: str) -> None:
         """Select playlist to display."""
-        playlist = next((g["id"] for g in self._galleries if g["name"] == source), None)
-        if playlist is None:
-            _LOGGER.warning("Meural device %s: Selecting source. Source %s not found", self.name, source)
-        else:
-            _LOGGER.info("Meural device %s: Selecting source. Playing gallery %s, ID %s", self.name, source, playlist)
-            await self.local_meural.send_change_gallery(playlist)
+        # Try local galleries first
+        if self.local_coordinator.data:
+            galleries = self.local_coordinator.data.get("galleries", [])
+            playlist = next((g["id"] for g in galleries if g["name"] == source), None)
+            if playlist is not None:
+                _LOGGER.info("Meural device %s: Selecting source. Playing local gallery %s, ID %s", self.name, source, playlist)
+                await self.local_meural.send_change_gallery(playlist)
+                await self._refresh_after_user_action()
+                return
 
-    async def async_media_previous_track(self):
+        # Not on device — load via cloud API
+        cloud_gallery = next((g for g in self._cloud_only_galleries() if g["name"] == source), None)
+        if cloud_gallery is not None:
+            _LOGGER.info("Meural device %s: Selecting source. Gallery %s not on device, loading via cloud API, ID %s", self.name, source, cloud_gallery["id"])
+            await self.meural.device_load_gallery(self.meural_device_id, cloud_gallery["id"])
+            await self._refresh_after_user_action()
+            return
+
+        _LOGGER.warning("Meural device %s: Selecting source. Source %s not found", self.name, source)
+
+    async def async_media_previous_track(self) -> None:
         """Send previous image command."""
-        if self._meural_device["gestureFlip"] == True:
+        if self._meural_device["gestureFlip"]:
             await self.local_meural.send_key_right()
         else:
             await self.local_meural.send_key_left()
+        # Refresh immediately to update thumbnail
+        await self._refresh_after_user_action()
 
-    async def async_media_next_track(self):
+    async def async_media_next_track(self) -> None:
         """Send next image command."""
-        if self._meural_device["gestureFlip"] == True:
+        if self._meural_device["gestureFlip"]:
             await self.local_meural.send_key_left()
         else:
             await self.local_meural.send_key_right()
+        # Refresh immediately to update thumbnail
+        await self._refresh_after_user_action()
 
     async def async_turn_on(self):
         """Resume Meural frame display."""
         await self.local_meural.send_key_resume()
+        # Optimistically mark as awake for immediate UI feedback.
+        # No immediate refresh — the device takes several seconds to wake up and would
+        # still report sleeping, overriding this update. The 10s poll will confirm.
+        self.local_coordinator._sleeping = False
+        self.async_write_ha_state()
 
     async def async_turn_off(self):
         """Suspend Meural frame display."""
         await self.local_meural.send_key_suspend()
+        # Optimistically mark as sleeping for immediate UI feedback; refresh confirms.
+        self.local_coordinator._sleeping = True
+        self.async_write_ha_state()
+        await self._refresh_after_user_action()
 
     async def async_media_pause(self):
         """Set duration to 0 (pause), store current duration in pause_duration."""
         self._pause_duration = self._meural_device["imageDuration"]
         _LOGGER.info("Meural device %s: Pausing player. Setting image duration on Meural server to 0", self.name)
         await self.meural.update_device(self.meural_device_id, {"imageDuration": 0})
+        self._meural_device["imageDuration"] = 0
+        self.async_write_ha_state()
 
     async def async_media_play(self):
         """Restore duration from pause_duration (play). Use duration 1800 if no pause_duration was stored."""
-        if self._pause_duration != 0:
-            _LOGGER.info("Meural device %s: Unpause player. Setting image duration on Meural server to %s", self.name, self._pause_duration)
-            await self.meural.update_device(self.meural_device_id, {"imageDuration": self._pause_duration})
-        else:
-            _LOGGER.info("Meural device %s: Unpause player. Setting image duration on Meural server to 1800", self.name)
-            await self.meural.update_device(self.meural_device_id, {"imageDuration": 1800})
+        duration = self._pause_duration or 1800
+        _LOGGER.info("Meural device %s: Unpause player. Setting image duration on Meural server to %s", self.name, duration)
+        await self.meural.update_device(self.meural_device_id, {"imageDuration": duration})
+        self._meural_device["imageDuration"] = duration
+        self.async_write_ha_state()
 
     async def async_set_shuffle(self, shuffle):
         """Enable/disable shuffling."""
         _LOGGER.info("Meural device %s: Shuffling player. Setting shuffle on Meural server to %s", self.name, shuffle)
         await self.meural.update_device(self.meural_device_id, {"imageShuffle": shuffle})
+        self._meural_device["imageShuffle"] = shuffle
+        self.async_write_ha_state()
 
     async def async_play_media(self, media_type, media_id, **kwargs):
         """Play media from media_source."""
@@ -523,8 +770,16 @@ class MeuralEntity(MediaPlayerEntity):
 
         # Play gallery (playlist or album) by ID.
         elif media_type in ['playlist']:
-            _LOGGER.info("Meural device %s: Playing media. Media type is %s, playing gallery %s", self.name, media_type, media_id)
-            await self.local_meural.send_change_gallery(media_id)
+            local_ids = set()
+            if self.local_coordinator.data:
+                local_ids = {str(g["id"]) for g in self.local_coordinator.data.get("galleries", [])}
+            if media_id in local_ids:
+                _LOGGER.info("Meural device %s: Playing media. Media type is %s, playing local gallery %s via local device", self.name, media_type, media_id)
+                await self.local_meural.send_change_gallery(media_id)
+            else:
+                _LOGGER.info("Meural device %s: Playing media. Media type is %s, gallery %s not on device, loading via Meural cloud API", self.name, media_type, media_id)
+                await self.meural.device_load_gallery(self.meural_device_id, media_id)
+            await self._refresh_after_user_action()
 
         # "Preview image from URL.
         elif media_type in [ 'image/jpg', 'image/png', 'image/jpeg' ]:
@@ -534,18 +789,31 @@ class MeuralEntity(MediaPlayerEntity):
         # Play item (artwork) by ID. Play locally if item is in currently displayed gallery. If not, play using Meural server."""
         elif media_type in ['item']:
             if media_id.isdigit():
-                currentgallery_id = self._gallery_status["current_gallery"]
+                if not self.local_coordinator.data:
+                    _LOGGER.warning("Meural device %s: Playing media. No local data available", self.name)
+                    return
+
+                gallery_status = self.local_coordinator.data.get("gallery_status", {})
+                currentgallery_id = gallery_status.get("current_gallery")
+                if not currentgallery_id:
+                    _LOGGER.warning("Meural device %s: Playing media. Current gallery not available", self.name)
+                    return
+
                 currentitems = await self.local_meural.send_get_items_by_gallery(currentgallery_id)
                 in_playlist = next((g["title"] for g in currentitems if g["id"] == media_id), None)
                 if in_playlist is None:
                     _LOGGER.info("Meural device %s: Playing media. Item %s is not in current gallery, trying to display via Meural server", self.name, media_id)
                     try:
                         await self.meural.device_load_item(self.meural_device_id, media_id)
-                    except:
-                        _LOGGER.error("Meural device %s: Playing media. Error while trying to display %s item %s via Meural server", self.name, media_type, media_id, exc_info=True)
+                    except (aiohttp.ClientError, asyncio.TimeoutError, KeyError) as err:
+                        _LOGGER.error("Meural device %s: Playing media. Error while trying to display %s item %s via Meural server: %s", self.name, media_type, media_id, err, exc_info=True)
+                        return
                 else:
-                    _LOGGER.info("Meural device %s: Playing media. Item %s is in current gallery %s, trying to display via local device", self.name, media_id, self._gallery_status["current_gallery_name"])
+                    current_gallery_name = gallery_status.get("current_gallery_name", "")
+                    _LOGGER.info("Meural device %s: Playing media. Item %s is in current gallery %s, trying to display via local device", self.name, media_id, current_gallery_name)
                     await self.local_meural.send_change_item(media_id)
+                # Refresh immediately to update thumbnail
+                await self._refresh_after_user_action()
             else:
                 _LOGGER.error("Meural device %s: Playing media. ID %s is not an item", self.name, media_id)
 
@@ -591,11 +859,11 @@ class MeuralEntity(MediaPlayerEntity):
             return response
 
         elif media_source.is_media_source_id(media_content_id) or media_content_type=="localmediasource":
-            kwargs = {}
-            if MAJOR_VERSION > 2022 or (MAJOR_VERSION == 2022 and MINOR_VERSION >= 2):
-                kwargs['content_filter'] = lambda item: item.media_content_type in ('image/jpg', 'image/png', 'image/jpeg')
-
-            response = await media_source.async_browse_media(self.hass, media_content_id, **kwargs)
+            response = await media_source.async_browse_media(
+                self.hass,
+                media_content_id,
+                content_filter=lambda item: item.media_content_type in ('image/jpg', 'image/png', 'image/jpeg')
+            )
             return response
 
         elif media_content_type=="meuralplaylists":
@@ -608,23 +876,36 @@ class MeuralEntity(MediaPlayerEntity):
                 can_expand=True,
                 children=[])
 
-            device_galleries = await self.meural.get_device_galleries(self.meural_device_id)
-            _LOGGER.info("Meural device %s: Browsing media. Getting %d device galleries from Meural server", self.name, len(device_galleries))
-            user_galleries = await self.meural.get_user_galleries()
-            _LOGGER.info("Meural device %s: Browsing media. Getting %d user galleries from Meural server", self.name, len(user_galleries))
-            [device_galleries.append(x) for x in user_galleries if x not in device_galleries]
-            self._remote_galleries = device_galleries
-            _LOGGER.info("Meural device %s: Browsing media. Has %d unique remote galleries on Meural server" % (self.name, len(self._remote_galleries)))
+            # Get galleries from coordinators
+            if not self.local_coordinator.data or not self.cloud_coordinator.data:
+                _LOGGER.warning("Meural device %s: Browsing media. Coordinator data not available", self.name)
+                return response
 
-            for g in self._galleries:
+            # Refresh gallery data if stale (lazy load on browser open)
+            if self.cloud_coordinator.galleries_stale:
+                await self.cloud_coordinator.async_refresh_galleries()
 
-                thumb=next((h["cover"] for h in self._remote_galleries if h["id"] == int(g["id"])), None)
-                if thumb == None and (int(g["id"])>4):
+            local_galleries = self.local_coordinator.data.get("galleries", [])
+            device_galleries = self.cloud_coordinator.data.get("device_galleries", {}).get(self.meural_device_id, [])
+            user_galleries = self.cloud_coordinator.data.get("user_galleries", [])
+
+            # Combine device and user galleries
+            remote_galleries = device_galleries.copy()
+            for x in user_galleries:
+                if x not in remote_galleries:
+                    remote_galleries.append(x)
+
+            _LOGGER.info("Meural device %s: Browsing media. Has %d local galleries, %d remote galleries", self.name, len(local_galleries), len(remote_galleries))
+
+            for g in local_galleries:
+                thumb = next((h["cover"] for h in remote_galleries if h["id"] == int(g["id"])), None)
+                if thumb is None and (int(g["id"]) > SD_CARD_FOLDER_MAX_ID):
                     _LOGGER.debug("Meural device %s: Browsing media. Gallery %s misses thumbnail, getting gallery items", self.name, g["id"])
                     album_items = await self.local_meural.send_get_items_by_gallery(g["id"])
-                    _LOGGER.info("Meural device %s: Browsing media. Replacing missing thumbnail of gallery %s with first gallery item image. Getting information from Meural server for item %s", self.name, g["id"], album_items[0]["id"])
-                    first_item = await self.meural.get_item(album_items[0]["id"])
-                    thumb = first_item["image"]
+                    if album_items:
+                        _LOGGER.info("Meural device %s: Browsing media. Replacing missing thumbnail of gallery %s with first gallery item image. Getting information from Meural server for item %s", self.name, g["id"], album_items[0]["id"])
+                        first_item = await self.meural.get_item(album_items[0]["id"])
+                        thumb = first_item["image"]
                 _LOGGER.debug("Meural device %s: Browsing media. Thumbnail image for gallery %s is %s", self.name, g["id"], thumb)
 
                 response.children.append(BrowseMedia(
@@ -635,6 +916,19 @@ class MeuralEntity(MediaPlayerEntity):
                     can_play=True,
                     can_expand=False,
                     thumbnail=thumb,
+                    )
+                )
+
+            # Cloud-only galleries (not yet on device)
+            for g in self._cloud_only_galleries():
+                response.children.append(BrowseMedia(
+                    title=g["name"],
+                    media_class=MediaType.PLAYLIST,
+                    media_content_id=str(g["id"]),
+                    media_content_type=MediaType.PLAYLIST,
+                    can_play=True,
+                    can_expand=False,
+                    thumbnail=g.get("cover"),
                     )
                 )
             return response
