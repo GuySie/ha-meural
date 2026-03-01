@@ -34,16 +34,16 @@ The integration will detect all Canvas devices registered to your account. Each 
 **Note 2:** If you are upgrading to v2.0.0 from v1.x, the upgrade is fully backward compatible — no re-configuration or re-authentication is needed. Home Assistant will handle the migration automatically on restart. However, if you are upgrading from v0.x, you have to delete this integration in *Settings*, *Devices & Services*, *Integrations*, and then re-add it to log in again. This will set up the configuration entries required by v1.0.0 and later.  
 
 ## Integration
-The integration supports built-in media player service calls to pause, play, play a specific item or playlist/album, go to the next/previous track (artwork), select a source (playlist/album), set shuffle mode, and turn on or turn off.  
-`media_player.media_pause`  
-`media_player.media_play`  
-`media_player.play_media`  
-`media_player.media_next_track`  
-`media_player.media_previous_track`  
-`media_player.select_source`  
-`media_player.shuffle_set`  
-`media_player.turn_on`  
-`media_player.turn_off`  
+The integration supports built-in media player service calls to pause, play, play a specific item or playlist/album, go to the next/previous track (artwork), select a source (playlist/album), set shuffle mode, and turn on or turn off.
+- `media_player.media_pause`
+- `media_player.media_play`
+- `media_player.play_media`
+- `media_player.media_next_track`
+- `media_player.media_previous_track`
+- `media_player.select_source`
+- `media_player.shuffle_set`
+- `media_player.turn_on`
+- `media_player.turn_off`  
 
 Service `media_player.play_media` can be used in 3 different ways:  
 1. Temporarily displays an image from a specified URL on your Canvas.  
@@ -57,14 +57,15 @@ Set parameter `media_content_type` to `playlist` and parameter `media_content_id
 
 ### Other Services
 Additional services built into this integration are:
-`meural.set_device_option`. 
-`meural.set_brightness`. 
-`meural.reset_brightness`. 
-`meural.toggle_informationcard`. 
-`meural.synchronize`. 
-`meural.preview_image`. 
-`meural.play_random_playlist`. 
-`meural.load_playlist`. 
+- `meural.set_device_option`
+- `meural.set_brightness`
+- `meural.reset_brightness`
+- `meural.toggle_informationcard`
+- `meural.synchronize`
+- `meural.preview_image`
+- `meural.play_random_playlist`
+- `meural.load_playlist`
+
 These services are fully documented in `services.yaml`.  
 
 **Tip:** The official Meural settings for the sensitivity of the ambient light sensor reading are limited to high (100), medium (20) or low (4). But you can make it any value of sensitivity, on a scale of 0 to 100, using `meural.set_device_option` and setting parameter `alsSensitivity`. I find Meural's low value still makes the screen too bright for my room, so I keep `alsSensitivity` set to 2. You can experiment with this setting to fine-tune a perfect brightness to match your room.  
@@ -130,34 +131,34 @@ https://kb.netgear.com/000060746/Can-I-control-the-Canvas-without-a-mobile-app-o
 This 'remote controller' is a local web server on the Canvas device available at: `http://YOUR-CANVAS-IP/remote/`  
 It runs on a javascript available at: `http://YOUR-CANVAS-IP/static/remote.js`
 
-The available calls in this javascript are:  
-`/remote/identify/`  
-`/remote/get_galleries_json/`  
-`/remote/get_gallery_status_json/`  
-`/remote/get_frame_items_by_gallery_json/`  
-`/remote/get_wifi_connections_json/`  
-`/remote/get_backlight/`  
-`/remote/control_check/sleep/`  
-`/remote/control_check/video/`  
-`/remote/control_check/als/`  
-`/remote/control_check/system/`  
-`/remote/control_command/boot_status/image/`  
-`/remote/control_command/set_key/`  
-`/remote/control_command/set_backlight/`  
-`/remote/control_command/suspend`  
-`/remote/control_command/resume`  
-`/remote/control_command/set_orientation/`  
-`/remote/control_command/change_gallery/`  
-`/remote/control_command/change_item/`  
-`/remote/control_command/rtc/`  
-`/remote/control_command/language/`  
-`/remote/control_command/country/`  
-`/remote/control_command/als_calibrate/off/`  
-`/remote/control_command_post/connect_to_new_wifi/`  
-`/remote/control_command_post/connect_to_exist_wifi/`  
-`/remote/control_command_post/connect_to_hidden_wifi/`  
-`/remote/control_command_post/delete_wifi_connection/`  
-`/remote/postcard/`  
+The available calls in this javascript are:
+- `/remote/identify/`
+- `/remote/get_galleries_json/`
+- `/remote/get_gallery_status_json/`
+- `/remote/get_frame_items_by_gallery_json/`
+- `/remote/get_wifi_connections_json/`
+- `/remote/get_backlight/`
+- `/remote/control_check/sleep/`
+- `/remote/control_check/video/`
+- `/remote/control_check/als/`
+- `/remote/control_check/system/`
+- `/remote/control_command/boot_status/image/`
+- `/remote/control_command/set_key/`
+- `/remote/control_command/set_backlight/`
+- `/remote/control_command/suspend`
+- `/remote/control_command/resume`
+- `/remote/control_command/set_orientation/`
+- `/remote/control_command/change_gallery/`
+- `/remote/control_command/change_item/`
+- `/remote/control_command/rtc/`
+- `/remote/control_command/language/`
+- `/remote/control_command/country/`
+- `/remote/control_command/als_calibrate/off/`
+- `/remote/control_command_post/connect_to_new_wifi/`
+- `/remote/control_command_post/connect_to_exist_wifi/`
+- `/remote/control_command_post/connect_to_hidden_wifi/`
+- `/remote/control_command_post/delete_wifi_connection/`
+- `/remote/postcard/`  
 
 ## AI
 Since v2.0.0, this integration is being maintained with help from Claude Code. If you are against using AI-generated code, please stay on a v1.x version or fork from that point to pursue your own development.
