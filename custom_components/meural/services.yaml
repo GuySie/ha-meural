@@ -28,7 +28,7 @@ toggle_informationcard:
       description: Entity ID of the Meural Canvas to toggle display on.
       example: "media_player.meural-123"
 synchronize:
-  description: Synchronize the Meural server with your Meural Canvas.
+  description: Report current Canvas state (IP address, free space, current item, and current playlists) to the Meural server.
   fields:
     entity_id:
       description: Entity ID of the Meural Canvas to synchronize.
@@ -99,3 +99,15 @@ set_device_option:
     schedulerEnabled:
       description: Enable scheduler. With the scheduler, you can put your Canvas to sleep and wake it up at certain times of day or schedule playlists at certain times.
       example: "true"
+load_playlist:
+  description: Load the latest cloud version of a playlist onto the Meural Canvas. Use this to pick up changes made in the Meural app since the playlist was last uploaded to the device.
+  fields:
+    entity_id:
+      description: Entity ID of the Meural Canvas to update.
+      example: "media_player.meural-123"
+    gallery_id:
+      description: Numeric ID of the gallery/playlist to load. Provide either this or gallery_name.
+      example: "12345"
+    gallery_name:
+      description: Name of the gallery/playlist to load. Provide either this or gallery_id. If both are provided, gallery_id takes precedence.
+      example: "My Art Collection"

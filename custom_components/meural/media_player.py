@@ -171,6 +171,15 @@ async def async_setup_entry(
         "async_play_random_playlist",
     )
 
+    platform.async_register_entity_service(
+        "load_playlist",
+        {
+            vol.Optional("gallery_id"): vol.Coerce(int),
+            vol.Optional("gallery_name"): str,
+        },
+        "async_load_playlist",
+    )
+
 class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEntity):
     """Representation of a Meural entity."""
 
@@ -568,6 +577,44 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
             gallery["id"],
         )
         await self.local_meural.send_change_gallery(gallery["id"])
+        await self._refresh_after_user_action()
+
+    async def async_load_playlist(self, gallery_id=None, gallery_name=None):
+        """Load the latest cloud version of a gallery onto the device."""
+        if gallery_id is None and gallery_name is None:
+            _LOGGER.error("Meural device %s: Load playlist. Must provide gallery_id or gallery_name", self.name)
+            return
+
+        resolved_id = gallery_id
+
+        if resolved_id is None:
+            # Look up by name in cloud coordinator data
+            device_galleries = self.cloud_coordinator.data.get("device_galleries", {}).get(self.meural_device_id, [])
+            user_galleries = self.cloud_coordinator.data.get("user_galleries", [])
+            seen_ids: set[int] = set()
+            all_galleries: list[dict] = []
+            for g in device_galleries + user_galleries:
+                if g["id"] not in seen_ids:
+                    seen_ids.add(g["id"])
+                    all_galleries.append(g)
+            match = next((g for g in all_galleries if g["name"] == gallery_name), None)
+            if match is None:
+                available_names = [g["name"] for g in all_galleries]
+                _LOGGER.error(
+                    "Meural device %s: Load playlist. Gallery '%s' not found in cloud data. Available galleries: %s",
+                    self.name,
+                    gallery_name,
+                    available_names,
+                )
+                return
+            resolved_id = match["id"]
+
+        _LOGGER.info(
+            "Meural device %s: Load playlist. Loading gallery ID %s from cloud",
+            self.name,
+            resolved_id,
+        )
+        await self.meural.device_load_gallery(self.meural_device_id, resolved_id)
         await self._refresh_after_user_action()
 
     async def _refresh_after_user_action(self) -> None:

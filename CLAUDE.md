@@ -34,7 +34,7 @@ The integration uses two DataUpdateCoordinators for efficient polling:
 **CloudDataUpdateCoordinator** (`coordinator.py:26-160`):
 - Polls Meural cloud API every 60 seconds (device settings only), or 3600 seconds (1 hour) when all devices are sleeping
 - Gallery data fetched separately via `async_refresh_galleries()` every 30 minutes (`GALLERY_UPDATE_INTERVAL`)
-- Gallery refresh triggered as background task on regular poll when stale, lazily on media browser open, and after `synchronize()` service
+- Gallery refresh triggered synchronously at startup (in `__init__.py` after `async_config_entry_first_refresh()`), as a background task on regular poll when stale, lazily on media browser open, and after `synchronize()` service
 - Handles authentication errors and triggers reauth flow
 - Shared across all devices for a single account
 - Aggregates sleep state across all entities to determine polling interval
@@ -130,4 +130,4 @@ All services are fully documented in `services.yaml`.
 - Uses both cloud polling and local device communication
 - Local IP discovery happens via cloud API (device must be online to initial setup)
 - Preview images use temporary display mechanism with configurable duration
-- `source_list` shows cloud-only galleries once the first background gallery refresh completes (~60s after startup); before that it shows only local galleries (no regression, just gradual reveal)
+- `source_list` includes cloud-only galleries immediately on startup as gallery data is populated synchronously during integration setup

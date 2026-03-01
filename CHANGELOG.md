@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed deprecated `set_update_interval()` method from CloudDataUpdateCoordinator
 
 ### Fixed
+- **`meural.load_playlist` name resolution**: Gallery name lookup now works correctly. Gallery data is populated synchronously at startup (previously deferred to a background task, causing lookups to always fail against an empty list). Error message now includes the list of available gallery names to aid debugging.
 - **Critical safety fix**: Replaced all bare `except:` clauses with specific exception types (aiohttp.ClientError, asyncio.TimeoutError, KeyError) to prevent catching system exits and other critical exceptions
 - **Config flow bug**: Fixed config flow error handling where `raise` statement prevented error messages from displaying to users
 - **Memory efficiency**: Fixed inefficient LocalMeural instance creation pattern

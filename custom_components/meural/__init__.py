@@ -53,6 +53,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Perform first refresh
     await cloud_coordinator.async_config_entry_first_refresh()
 
+    # Populate gallery data synchronously so it is available immediately
+    await cloud_coordinator.async_refresh_galleries()
+
     # Store meural instance and coordinator in hass.data
     hass.data[DOMAIN][entry.entry_id] = {
         "meural": meural,
