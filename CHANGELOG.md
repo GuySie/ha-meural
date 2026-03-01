@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **None** - This release is fully backward compatible with v1.x installations
 
 ### Added
+- **Cloud gallery selection**: Playlists not yet loaded on the Canvas now appear in `source_list` and the media browser under "Meural Playlists"; selecting one loads it onto the device via the Meural cloud API (`device_load_gallery`) instead of requiring a manual sync first
 - **`meural.play_random_playlist` service**: New service that picks a random playlist from all playlists currently loaded on the Canvas and plays it; avoids re-selecting the currently playing playlist when multiple playlists are available
 - **DataUpdateCoordinator architecture**: Implemented modern coordinator pattern with dual coordinators (CloudDataUpdateCoordinator and LocalDataUpdateCoordinator)
 - **Dynamic polling intervals**: Cloud API polling adjusts from 60s when devices are awake to 3600s (1 hour) when all devices are sleeping
@@ -21,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Duplicate auth prevention**: Async lock prevents multiple parallel API calls from triggering duplicate authentication attempts
 - **Pagination support**: Fetch all devices and galleries (up to 1000) instead of only the first 10 items
 - **Immediate thumbnail updates**: User navigation actions (next/previous track, playlist changes) now update thumbnails immediately instead of waiting for next polling cycle
+- **Optimistic state updates**: Turn on/off, pause/play, and shuffle now update the media player card instantly without waiting for the next poll cycle
+- **Separate gallery refresh cycle**: Gallery data is now fetched on a 30-minute interval (`GALLERY_UPDATE_INTERVAL`) separately from the 60-second device settings poll, reducing cloud API load; refresh is triggered lazily on media browser open and immediately after `synchronize()`
 
 ### Changed
 - **Improved efficiency**: LocalMeural instances are now persistent and reused instead of being recreated on every call
@@ -47,6 +50,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sleep state flickering**: Fixed transient connection failures incorrectly flipping device state to sleeping; now preserves last known sleep state on network errors to prevent STATE_PLAYING/STATE_OFF flickering
 - **play_media error handling**: Fixed missing early return after cloud API error in the item play handler, preventing subsequent local API call on already-failed operations
 - **Log format string**: Fixed malformed warning log message when local device contact fails, resolving "Bad logger message" errors in Home Assistant logs
+- **Turn on not showing thumbnail**: After waking a Canvas, the media player card now immediately reflects the ON state; thumbnail loads within the next 10-second local poll once the device has fully woken
+- **Turn off staying ON**: Media player card now immediately shows OFF state when turning off, confirmed by a rapid local coordinator refresh
+- **Pause/play state delay**: Pausing or resuming now immediately updates the media player card instead of waiting up to 60 seconds for the next cloud poll
 
 ### Security
 - Replaced dangerous bare `except:` clauses that could catch system exits and keyboard interrupts

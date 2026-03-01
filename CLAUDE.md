@@ -31,9 +31,10 @@ To test changes, install the integration in a Home Assistant instance:
 
 The integration uses two DataUpdateCoordinators for efficient polling:
 
-**CloudDataUpdateCoordinator** (`coordinator.py:26-123`):
-- Polls Meural cloud API every 60 seconds, or 3600 seconds (1 hour) when all devices are sleeping
-- Fetches device information, device galleries, and user galleries (paginated, up to 1000 items)
+**CloudDataUpdateCoordinator** (`coordinator.py:26-160`):
+- Polls Meural cloud API every 60 seconds (device settings only), or 3600 seconds (1 hour) when all devices are sleeping
+- Gallery data fetched separately via `async_refresh_galleries()` every 30 minutes (`GALLERY_UPDATE_INTERVAL`)
+- Gallery refresh triggered as background task on regular poll when stale, lazily on media browser open, and after `synchronize()` service
 - Handles authentication errors and triggers reauth flow
 - Shared across all devices for a single account
 - Aggregates sleep state across all entities to determine polling interval
@@ -66,6 +67,11 @@ The integration uses two DataUpdateCoordinators for efficient polling:
 - Detects physical device rotation via gsensor changes when orientationMatch is enabled
 - Reloads current gallery after orientation change to force `current_item` update (local API limitation)
 - Updates thumbnails immediately after user navigation actions without waiting for next poll cycle
+- Uses optimistic state updates for turn on/off, pause/play, and shuffle so the UI reflects changes instantly
+- Turn on: optimistically sets sleeping=False; device takes several seconds to wake so no immediate refresh (10s poll confirms)
+- Turn off: optimistically sets sleeping=True then confirms with an immediate refresh (device suspends quickly)
+- `_cloud_only_galleries()`: computes galleries present in cloud (`device_galleries` + `user_galleries`) but not yet on the local device; used by `source_list`, `async_select_source`, `async_browse_media`, and `async_play_media`
+- Gallery selection tries local device first (via `send_change_gallery`); if not on device, falls back to cloud API (`device_load_gallery`)
 
 ### Authentication Flow
 
@@ -77,13 +83,14 @@ The integration uses two DataUpdateCoordinators for efficient polling:
 
 ### Data Flow
 
-1. Cloud coordinator fetches devices and galleries from Meural API (paginated)
-2. Local coordinator polls each device's local interface for real-time state including gsensor
+1. Cloud coordinator fetches device settings from Meural API every 60s; gallery data fetched separately every 30 min
+2. Local coordinator polls each device's local interface every 10s for real-time state including gsensor
 3. Media player entity subscribes to both coordinators
 4. Entity state derived from combination of cloud and local data
 5. Update intervals adjust dynamically (slower when all devices sleeping)
 6. gsensor changes trigger gallery reload to detect orientationMatch item switches
 7. User actions (next/prev track, playlist changes) trigger immediate local coordinator refresh
+8. Turn on/off, pause/play use optimistic state updates for instant UI feedback without waiting for next poll
 
 ## Key Files
 
@@ -123,3 +130,4 @@ All services are fully documented in `services.yaml`.
 - Uses both cloud polling and local device communication
 - Local IP discovery happens via cloud API (device must be online to initial setup)
 - Preview images use temporary display mechanism with configurable duration
+- `source_list` shows cloud-only galleries once the first background gallery refresh completes (~60s after startup); before that it shows only local galleries (no regression, just gradual reveal)
