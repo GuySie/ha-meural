@@ -5,7 +5,7 @@
 
 The [NETGEAR Meural Canvas](https://www.netgear.com/home/digital-art-canvas/) is a digital art frame with both a local interface and a cloud API.  
 
-[Home Assistant](https://www.home-assistant.io/) is an open source home automation package that puts local control and privacy first.  
+[Home Assistant](https://www.home-assistant.io/) is an open source home automation platform that puts local control and privacy first.  
 
 This integration leverages Meural's API and local interface to control the Meural Canvas as a media player in Home Assistant.  
 
@@ -27,13 +27,11 @@ After restarting go to *Settings*, *Devices & Services*, *Integrations*, and cli
 
 Log in with your NETGEAR account.  
 
-The integration will detect all Canvas devices registered to your account. Each Canvas will become a Media Player entity and can be added to your Lovelace UI using any component that supports it, for example the Media Control card. By default your entity's name will correspond to the name of the Canvas, which out-of-the-box consists of a painter's name and 3 digits like `picasso-428` - resulting in the entity `media_player.picasso-428` being created. You can override the name and entity ID in Home Assistant's entity settings.  
+The integration will detect all Canvas devices registered to your account. Each Canvas will become a Media Player entity and can be added to your dashboard using any component that supports it, for example the standard Media Control card. By default your entity's name will correspond to the name of the Canvas, which out-of-the-box consists of a painter's name and 3 digits like `picasso-428` - resulting in the entity `media_player.picasso-428` being created. You can override the name and entity ID in Home Assistant's entity settings.  
 
 **Note 1:** This integration does not yet support NETGEAR's two-step verification method of logging in. Please use the standard login and password method to use this integration.  
 
-**Note 2:** If you are upgrading to v2.0.0 from v1.x, the upgrade is fully backward compatible — no re-configuration or re-authentication is needed. Home Assistant will handle the migration automatically on restart.
-
-**Note 3:** If you are upgrading from a version prior to v1.0.0, you have to delete this integration in *Settings*, *Devices & Services*, *Integrations*, and then re-add it to log in again. This will set up the configuration entries required by v1.0.0 and later. Prior to v1.0.0 your Canvas devices would become unavailable once the authentication token expired, but from v1.0.0 onwards the integration detects this and re-authenticates automatically.
+**Note 2:** If you are upgrading to v2.0.0 from v1.x, the upgrade is fully backward compatible — no re-configuration or re-authentication is needed. Home Assistant will handle the migration automatically on restart. However, if you are upgrading from v0.x, you have to delete this integration in *Settings*, *Devices & Services*, *Integrations*, and then re-add it to log in again. This will set up the configuration entries required by v1.0.0 and later.  
 
 ## Integration
 The integration supports built-in media player service calls to pause, play, play a specific item or playlist/album, go to the next/previous track (artwork), select a source (playlist/album), set shuffle mode, and turn on or turn off.  
@@ -59,14 +57,14 @@ Set parameter `media_content_type` to `playlist` and parameter `media_content_id
 
 ### Other Services
 Additional services built into this integration are:
-`meural.set_device_option`
-`meural.set_brightness`
-`meural.reset_brightness`
-`meural.toggle_informationcard`
-`meural.synchronize`
-`meural.preview_image`
-`meural.play_random_playlist`
-`meural.load_playlist`
+`meural.set_device_option`. 
+`meural.set_brightness`. 
+`meural.reset_brightness`. 
+`meural.toggle_informationcard`. 
+`meural.synchronize`. 
+`meural.preview_image`. 
+`meural.play_random_playlist`. 
+`meural.load_playlist`. 
 These services are fully documented in `services.yaml`.  
 
 **Tip:** The official Meural settings for the sensitivity of the ambient light sensor reading are limited to high (100), medium (20) or low (4). But you can make it any value of sensitivity, on a scale of 0 to 100, using `meural.set_device_option` and setting parameter `alsSensitivity`. I find Meural's low value still makes the screen too bright for my room, so I keep `alsSensitivity` set to 2. You can experiment with this setting to fine-tune a perfect brightness to match your room.  
