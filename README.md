@@ -31,7 +31,9 @@ The integration will detect all Canvas devices registered to your account. Each 
 
 **Note 1:** This integration does not yet support NETGEAR's two-step verification method of logging in. Please use the standard login and password method to use this integration.  
 
-**Note 2:** If you are upgrading from a version of HA-meural prior to v1.0.0, you have to delete this integration in *Settings*, *Devices & Services*, *Integrations*, and then re-add it to log in again. This will set up the new configuration entries. Prior to v1.0.0 your Canvas devices would become unavailable once the authentication token expires, but from v1.0.0 onwards it will detect when this happens and re-authenticate automatically.
+**Note 2:** If you are upgrading to v2.0.0 from v1.x, the upgrade is fully backward compatible — no re-configuration or re-authentication is needed. Home Assistant will handle the migration automatically on restart.
+
+**Note 3:** If you are upgrading from a version prior to v1.0.0, you have to delete this integration in *Settings*, *Devices & Services*, *Integrations*, and then re-add it to log in again. This will set up the configuration entries required by v1.0.0 and later. Prior to v1.0.0 your Canvas devices would become unavailable once the authentication token expired, but from v1.0.0 onwards the integration detects this and re-authenticates automatically.
 
 ## Integration
 The integration supports built-in media player service calls to pause, play, play a specific item or playlist/album, go to the next/previous track (artwork), select a source (playlist/album), set shuffle mode, and turn on or turn off.  
@@ -50,25 +52,27 @@ Service `media_player.play_media` can be used in 3 different ways:
 Set parameter `media_content_type` to `image/jpg` or `image/png`, depending on your image type, and set `media_content_id` to the URL of the image you want to display. The amount of time these images will display can be set with parameter `previewDuration` using service `meural.set_device_option`. This is most suitable for use in automations when you wish to display images temporarily on the Canvas without uploading them as artwork to the Meural servers.  
 2. Displays artwork hosted on the Meural servers on your Canvas.  
 Set parameter `media_content_type` to `item` and set parameter `media_content_id` to the item ID of the artwork you wish to display. You will only be able to play artwork that you have permission for, i.e. that you have uploaded yourself or that your current Meural membership gives you access to. If the artwork is not in the currently selected playlist or album, the Canvas will also switch to an *'All works'* playlist that contains all individual artwork you have played in this manner.  
-3. Displays a playlist/album that is already uploaded to your Canvas.  
-Set parameter `media_content_type` to `playlist` and parameter `media_content_id` to the gallery ID of the playlist or album that you wish to display. You will not be able to display a playlist or album that has not yet been sent to the Canvas through the Meural app or website. When typing in gallery IDs manually, please note that albums are represented by a gallery ID on your Canvas that is not the same as their album ID on the Meural servers. To find out the gallery ID on your canvas, browse to `http://YOUR-CANVAS-IP/remote/get_galleries_json/` and locate the `id` tag next to the album or playlist name to use in the service call.
+3. Displays a playlist/album from your Meural account on your Canvas.
+Set parameter `media_content_type` to `playlist` and parameter `media_content_id` to the gallery ID of the playlist or album that you wish to display. If the playlist is already loaded on the Canvas it will be selected directly; if it is only available in the cloud (i.e. not yet pushed to the Canvas), the integration will load it onto the Canvas via the cloud API first. When typing in gallery IDs manually, please note that albums are represented by a gallery ID on your Canvas that is not the same as their album ID on the Meural servers. To find out the gallery ID on your canvas, browse to `http://YOUR-CANVAS-IP/remote/get_galleries_json/` and locate the `id` tag next to the album or playlist name to use in the service call.
 
 ![Meural Canvas in entity settings](https://raw.githubusercontent.com/GuySie/ha-meural/master/images/entitysettings.png)
 
 ### Other Services
-Additional services built into this integration are:  
-`meural.set_device_option`  
-`meural.set_brightness`  
-`meural.reset_brightness`  
-`meural.toggle_informationcard`  
-`meural.synchronize`  
-`meural.preview_image`  
+Additional services built into this integration are:
+`meural.set_device_option`
+`meural.set_brightness`
+`meural.reset_brightness`
+`meural.toggle_informationcard`
+`meural.synchronize`
+`meural.preview_image`
+`meural.play_random_playlist`
+`meural.load_playlist`
 These services are fully documented in `services.yaml`.  
 
 **Tip:** The official Meural settings for the sensitivity of the ambient light sensor reading are limited to high (100), medium (20) or low (4). But you can make it any value of sensitivity, on a scale of 0 to 100, using `meural.set_device_option` and setting parameter `alsSensitivity`. I find Meural's low value still makes the screen too bright for my room, so I keep `alsSensitivity` set to 2. You can experiment with this setting to fine-tune a perfect brightness to match your room.  
 
 ### Media Browser
-Home Assistant's Media Browser is supported by this integration. This gives you two methods to change playlist/albums: you can still switch using the text-only source drop-down in the entity's settings, but now you can also visually browse your playlists and albums using the media browser button on the media control card or the entity's settings.  
+Home Assistant's Media Browser is supported by this integration. This gives you two methods to change playlist/albums: you can still switch using the text-only source drop-down in the entity's settings, but now you can also visually browse your playlists and albums using the media browser button on the media control card or the entity's settings. Playlists and albums that are in your Meural account but not yet loaded onto the Canvas appear under a "Meural Playlists" section; selecting one will load it onto the Canvas automatically.  
 
 ![Playlists in media browser of Meural Canvas](https://raw.githubusercontent.com/GuySie/ha-meural/master/images/mediabrowserplaylists.png)
 
@@ -119,7 +123,7 @@ It's not elegant, but it works.
 ## Meural Canvas device
 
 ### Meural API
-Meural has a REST API that their [mobile apps](https://www.netgear.com/support/product/mc327.aspx#download) and [web-interface](https://my.meural.netgear.com/) run on. Unofficial documentation on this API can be found here:
+Meural has a REST API that their [mobile apps](https://www.netgear.com/home/meural-digital-frame/meural-app/) and [web-interface](https://my.meural.netgear.com/) run on. Unofficial documentation on this API can be found here:
 https://documenter.getpostman.com/view/1657302/RVnWjKUL
 
 ### Local Web Server
@@ -157,35 +161,5 @@ The available calls in this javascript are:
 `/remote/control_command_post/delete_wifi_connection/`  
 `/remote/postcard/`  
 
-## Technical Details
-
-### Architecture (v2.0.0+)
-
-Starting with version 2.0.0, ha-meural uses Home Assistant's modern DataUpdateCoordinator pattern for efficient data polling and state management:
-
-**Dual Coordinator Pattern:**
-- **CloudDataUpdateCoordinator**: Polls the Meural cloud API every 30 seconds (120 seconds when device is sleeping) to fetch device information, device galleries, and user galleries. Handles authentication errors automatically by triggering the reauth flow.
-- **LocalDataUpdateCoordinator**: Polls the local device API every 10 seconds to fetch real-time state (sleep status, local galleries, current gallery status). Each device has its own local coordinator instance.
-
-**Benefits:**
-- Efficient polling with dynamic update intervals based on device state
-- Automatic error recovery and retry handling
-- Reduced memory overhead through persistent LocalMeural instances
-- Better separation of concerns between cloud and local data
-
-**Requirements:**
-- Home Assistant 2024.1.0 or newer
-- Python 3.11 or newer
-
-### Code Modernization (v2.0.0)
-
-Version 2.0.0 represents a major modernization of the codebase to follow Home Assistant 2024-2025 best practices:
-
-- **Safety improvements**: Replaced bare `except:` clauses with specific exception types
-- **Modern patterns**: Removed deprecated code (CONFIG_SCHEMA, CONNECTION_CLASS, version checks)
-- **Type hints**: Added comprehensive type annotations throughout the codebase
-- **Better error handling**: Improved exception handling and error recovery
-- **Backward compatible**: Fully backward compatible with existing installations - no user action required
-
-## Thanks
-The first version of this integration was built by [@balloob](https://github.com/balloob) - many, many thanks to him. Blame [@guysie](https://github.com/guysie) for the code added afterwards. Thanks to [@thomasvs](https://github.com/thomasvs) for contributing the code to preview images and [@sanghviharshit](https://github.com/sanghviharshit) for the re-authentication code!
+## AI
+Since v2.0.0, this integration is being maintained with help from Claude Code. If you are against using AI-generated code, please stay on a v1.x version or fork from that point to pursue your own development.

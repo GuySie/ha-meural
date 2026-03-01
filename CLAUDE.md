@@ -120,6 +120,7 @@ Beyond standard media player services, the integration provides:
 - `meural.preview_image`: Display image from URL temporarily
 - `meural.set_device_option`: Configure Canvas options (orientation, shuffle, duration, etc.)
 - `meural.play_random_playlist`: Pick a random playlist from all playlists loaded on the Canvas and play it
+- `meural.load_playlist`: (Re)load a playlist from the cloud API onto the Canvas by `gallery_id` or `gallery_name`; synchronizes cloud changes not yet on the device
 
 All services are fully documented in `services.yaml`.
 

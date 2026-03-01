@@ -6,42 +6,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [2.0.0] - 2026-02-28
+- Modernized component to current Home Assistant best practices using Claude Code
+- Fixed longstanding bugs using Claude Code
+- Implemented longstanding feature requests using Claude Code
 
 ### Breaking Changes
 - **None** - This release is fully backward compatible with v1.x installations
 
 ### Added
-- **Cloud gallery selection**: Playlists not yet loaded on the Canvas now appear in `source_list` and the media browser under "Meural Playlists"; selecting one loads it onto the device via the Meural cloud API (`device_load_gallery`) instead of requiring a manual sync first
-- **`meural.play_random_playlist` service**: New service that picks a random playlist from all playlists currently loaded on the Canvas and plays it; avoids re-selecting the currently playing playlist when multiple playlists are available
 - **DataUpdateCoordinator architecture**: Implemented modern coordinator pattern with dual coordinators (CloudDataUpdateCoordinator and LocalDataUpdateCoordinator)
-- **Dynamic polling intervals**: Cloud API polling adjusts from 60s when devices are awake to 3600s (1 hour) when all devices are sleeping
-- **Comprehensive type hints**: Added type annotations throughout the codebase for better maintainability
-- **Better error recovery**: Improved exception handling with specific exception types
-- **Automatic reauth flow**: Authentication errors now trigger Home Assistant's reauth flow automatically
+- **Dynamic polling intervals**: Cloud API polling adjusts from 60s when devices are awake to 3600s (1 hour) when all devices are sleeping. Gallery data is now fetched on a 30-minute interval separately from the 60s device settings poll, reducing cloud API load.
 - **Refresh token support**: AWS Cognito refresh tokens reduce re-authentication from every 10 minutes to every ~30 days
+- **Automatic reauth flow**: Authentication errors now trigger Home Assistant's reauth flow automatically
 - **Duplicate auth prevention**: Async lock prevents multiple parallel API calls from triggering duplicate authentication attempts
-- **Pagination support**: Fetch all devices and galleries (up to 1000) instead of only the first 10 items
-- **Immediate thumbnail updates**: User navigation actions (next/previous track, playlist changes) now update thumbnails immediately instead of waiting for next polling cycle
-- **Optimistic state updates**: Turn on/off, pause/play, and shuffle now update the media player card instantly without waiting for the next poll cycle
-- **Separate gallery refresh cycle**: Gallery data is now fetched on a 30-minute interval (`GALLERY_UPDATE_INTERVAL`) separately from the 60-second device settings poll, reducing cloud API load; refresh is triggered lazily on media browser open and immediately after `synchronize()`
+- **Cloud gallery selection**: Playlists not yet loaded on the Canvas now appear in `source_list` and the media browser under "Meural Playlists"; selecting one loads it onto the device via the Meural cloud API (`device_load_gallery`)
+- **`meural.play_random_playlist` service**: New service that picks a random playlist from all playlists currently loaded on the Canvas and plays it; avoids re-selecting the currently playing playlist when multiple playlists are available
+- **`meural.load_playlist` service**: New service that (re)loads the chosen playlist from the cloud API. This synchronizes any changes made to the playlist on the cloud API that were not stored on the local device yet.
 
 ### Changed
 - **Improved efficiency**: LocalMeural instances are now persistent and reused instead of being recreated on every call
 - **Modern string formatting**: Updated all string formatting to use f-strings and logging best practices
 - **Better coordinator-based state management**: Entities now use coordinator data instead of manual polling
+- **Pagination support**: Fetch all devices and galleries (up to 1000) instead of only the first 10 items
+- **Immediate thumbnail updates**: User navigation actions (next/previous track, playlist changes) now update thumbnails immediately instead of waiting for next polling cycle
 - **Optimized thumbnail fetching**: Only fetch artwork metadata from cloud when displayed item actually changes, reducing API calls from every 10s to only when needed
+- **Optimistic state updates**: Turn on/off, pause/play, and shuffle now update the media player card instantly without waiting for the next poll cycle
+- **Efficient polling**: Cloud coordinator aggregates all devices' sleep states - polls at 60s if any device is awake, 3600s (1 hour) only when all devices are sleeping
+- **Comprehensive type hints**: Added type annotations throughout the codebase for better maintainability
 - **Enhanced error visibility**: Local coordinator connection failures now log at WARNING level instead of DEBUG, with clear indication of cached data usage
-- **Efficient polling**: Cloud coordinator aggregates all devices' sleep states - polls at 60s if any device is awake, 600s only when all devices are sleeping
+- **Better error recovery**: Improved exception handling with specific exception types
 
 ### Deprecated
 - Removed `CONFIG_SCHEMA` (no longer needed in modern Home Assistant)
 - Removed `CONNECTION_CLASS` attribute (deprecated in Home Assistant)
 - Removed version checks for MAJOR_VERSION/MINOR_VERSION (no longer needed)
 - Removed try/except import for MediaPlayerDevice/MediaPlayerEntity (modern HA only uses MediaPlayerEntity)
-- Removed deprecated `set_update_interval()` method from CloudDataUpdateCoordinator
 
 ### Fixed
-- **`meural.load_playlist` name resolution**: Gallery name lookup now works correctly. Gallery data is populated synchronously at startup (previously deferred to a background task, causing lookups to always fail against an empty list). Error message now includes the list of available gallery names to aid debugging.
 - **Critical safety fix**: Replaced all bare `except:` clauses with specific exception types (aiohttp.ClientError, asyncio.TimeoutError, KeyError) to prevent catching system exits and other critical exceptions
 - **Config flow bug**: Fixed config flow error handling where `raise` statement prevented error messages from displaying to users
 - **Memory efficiency**: Fixed inefficient LocalMeural instance creation pattern
@@ -54,10 +55,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Turn on not showing thumbnail**: After waking a Canvas, the media player card now immediately reflects the ON state; thumbnail loads within the next 10-second local poll once the device has fully woken
 - **Turn off staying ON**: Media player card now immediately shows OFF state when turning off, confirmed by a rapid local coordinator refresh
 - **Pause/play state delay**: Pausing or resuming now immediately updates the media player card instead of waiting up to 60 seconds for the next cloud poll
-
-### Security
-- Replaced dangerous bare `except:` clauses that could catch system exits and keyboard interrupts
-- Improved exception handling to catch only expected error types
 
 ### Technical
 - Minimum Home Assistant version: 2024.1.0
