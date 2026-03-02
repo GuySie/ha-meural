@@ -17,6 +17,10 @@ _LOGGER = logging.getLogger(__name__)
 
 BASE_URL = "https://api.meural.com/v0/"
 
+AUTH_CLIENT_NAME = "cognito-idp"
+AUTH_CLIENT_REGION = "eu-west-1"
+AUTH_CLIENT_CLIENTID = "487bd4kvb1fnop6mbgk8gu5ibf"
+
 
 async def authenticate(
     session: aiohttp.ClientSession, username: str, password: str
@@ -25,9 +29,9 @@ async def authenticate(
     _LOGGER.info('Meural: Authenticating with username and password')
 
     def initiate_auth():
-        client = boto3.client("cognito-idp", region_name="eu-west-1")
+        client = boto3.client(AUTH_CLIENT_NAME, region_name=AUTH_CLIENT_REGION)
         return client.initiate_auth(
-            ClientId="487bd4kvb1fnop6mbgk8gu5ibf",
+            ClientId=AUTH_CLIENT_CLIENTID,
             AuthFlow="USER_PASSWORD_AUTH",
             AuthParameters={"USERNAME": username, "PASSWORD": password},
         )
@@ -51,9 +55,9 @@ async def refresh_access_token(
     _LOGGER.info('Meural: Refreshing access token using refresh token')
 
     def initiate_auth_refresh():
-        client = boto3.client("cognito-idp", region_name="eu-west-1")
+        client = boto3.client(AUTH_CLIENT_NAME, region_name=AUTH_CLIENT_REGION)
         return client.initiate_auth(
-            ClientId="487bd4kvb1fnop6mbgk8gu5ibf",
+            ClientId=AUTH_CLIENT_CLIENTID,
             AuthFlow="REFRESH_TOKEN_AUTH",
             AuthParameters={"REFRESH_TOKEN": refresh_token},
         )
