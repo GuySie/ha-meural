@@ -211,20 +211,10 @@ class LocalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             galleries = await self.local_meural.send_get_galleries()
             gallery_status = await self.local_meural.send_get_gallery_status()
 
-            # Get gsensor orientation for orientationMatch detection.
-            # Failure here is non-critical; omit the key so callers can detect absence.
-            gsensor = None
-            try:
-                system_info = await self.local_meural.send_get_system()
-                gsensor = system_info.get("gsensor")
-            except (aiohttp.ClientError, asyncio.TimeoutError):
-                pass
-
             return {
                 "sleeping": False,
                 "galleries": sorted(galleries, key=lambda i: i["name"]),
                 "gallery_status": gallery_status,
-                "gsensor": gsensor,
             }
 
         except (DeviceTurnedOff, aiohttp.ClientError, asyncio.TimeoutError) as err:
