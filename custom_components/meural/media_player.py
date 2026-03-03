@@ -200,7 +200,6 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         self._current_item: dict[str, Any] = {}
         self._pause_duration = 0
         self._last_fetched_item_id: int | None = None
-        self._last_gsensor: str | None = None
 
         # Start listening to local coordinator updates
         self.async_on_remove(
@@ -308,33 +307,11 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         self.cloud_coordinator.notify_sleep_state_changed()
 
         if self.local_coordinator.data:
-            # Detect physical rotation via gsensor when orientationMatch is enabled.
-            # gallery_status.current_item does not update on orientationMatch switches,
-            # so we use gsensor changes as the trigger to clear stale item metadata.
-            gsensor = self.local_coordinator.data.get("gsensor")
-            if (
-                gsensor is not None
-                and self._last_gsensor is not None
-                and gsensor != self._last_gsensor
-                and self._meural_device.get("orientationMatch")
-            ):
-                _LOGGER.debug(
-                    "Meural device %s: gsensor changed from %s to %s with orientationMatch enabled, reloading gallery to force item update",
-                    self.name,
-                    self._last_gsensor,
-                    gsensor,
-                )
-                self._current_item = {}
-                self._last_fetched_item_id = None
-                self.hass.async_create_task(self._reload_gallery_on_orientation_change())
-            else:
-                # When local data updates, fetch current item if it changed
-                gallery_status = self.local_coordinator.data.get("gallery_status", {})
-                if gallery_status:
-                    # Schedule fetching current item in the background
-                    self.hass.async_create_task(self._fetch_current_item_if_needed())
-            if gsensor is not None:
-                self._last_gsensor = gsensor
+            # When local data updates, fetch current item if it changed
+            gallery_status = self.local_coordinator.data.get("gallery_status", {})
+            if gallery_status:
+                # Schedule fetching current item in the background
+                self.hass.async_create_task(self._fetch_current_item_if_needed())
 
         self.async_write_ha_state()
 
@@ -625,40 +602,6 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         # Force immediate refresh for user-initiated actions (bypasses throttling)
         # This will automatically trigger _fetch_current_item_if_needed() via the coordinator update listener
         await self.local_coordinator.async_refresh()
-
-    async def _reload_gallery_on_orientation_change(self) -> None:
-        """Reload the current gallery after an orientationMatch rotation to force item update.
-
-        When the device physically rotates with orientationMatch enabled, it switches to an
-        orientation-appropriate item internally but gallery_status.current_item never updates
-        via the local API until the gallery naturally advances. Reloading the same gallery
-        forces the device to report the correct current_item.
-        """
-        if not self.local_coordinator.data:
-            return
-        gallery_status = self.local_coordinator.data.get("gallery_status", {})
-        current_gallery_id = gallery_status.get("current_gallery")
-        if not current_gallery_id or int(current_gallery_id) <= SD_CARD_FOLDER_MAX_ID:
-            return
-        _LOGGER.debug(
-            "Meural device %s: Reloading gallery %s to force current_item update after orientation change",
-            self.name,
-            current_gallery_id,
-        )
-        try:
-            # Wait for the orientation transition to complete before reloading.
-            # The transition animation takes several seconds; tune this if the reload
-            # still interrupts the transition or takes too long to respond.
-            await asyncio.sleep(5.0)
-            await self.local_meural.send_change_gallery(current_gallery_id)
-            await asyncio.sleep(1.0)
-            await self.local_coordinator.async_refresh()
-        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
-            _LOGGER.warning(
-                "Meural device %s: Error reloading gallery after orientation change: %s",
-                self.name,
-                err,
-            )
 
     async def async_select_source(self, source: str) -> None:
         """Select playlist to display."""
