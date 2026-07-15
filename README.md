@@ -31,6 +31,8 @@ Log in with your NETGEAR account.
 
 **Note 2:** If you are upgrading to v2.0.0 from v1.x, the upgrade is fully backward compatible — no re-configuration or re-authentication is needed. Home Assistant will handle the migration automatically on restart. However, if you are upgrading from v0.x, you have to delete this integration in *Settings*, *Devices & Services*, *Integrations*, and then re-add it to log in again. This will set up the configuration entries required by v1.0.0 and later.  
 
+**Note 3:** If your login stops working, Home Assistant will prompt you to reauthenticate with a notification under *Settings* → *Devices & Services*. Since v2.4.0, this only happens for genuinely invalid credentials. Temporary upstream issues connecting to the Meural cloud (e.g. rate limiting) are treated as connectivity failures instead — the integration backs off and retries automatically rather than asking you to log in again.  
+
 ### Media Player
 The integration will detect all Canvas devices registered to your account. Each Canvas will become a Media Player entity and can be added to your dashboard using any component that supports it, for example the standard Media Control card. By default your entity's name will correspond to the name of the Canvas, which out-of-the-box consists of a painter's name and 3 digits like `picasso-428` - resulting in the entity `media_player.picasso-428` being created. You can override the name and entity ID in Home Assistant's entity settings.  
 
