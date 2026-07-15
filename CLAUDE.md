@@ -55,6 +55,9 @@ The integration uses two DataUpdateCoordinators for efficient polling:
 - Uses AWS Cognito (boto3) for authentication with automatic token refresh
 - Handles authentication token lifecycle with callback for persistent storage
 - All API methods are async and use aiohttp
+- Classifies Cognito auth failures by error code: `NotAuthorizedException`/`UserNotFoundException` raise `InvalidAuth` (genuinely bad credentials); anything else (WAF blocks, throttling, network errors) raises `CannotConnect` so it doesn't misreport as bad credentials
+- On auth failure, applies exponential backoff (60s, doubling up to a 30 min cap) before allowing another full authentication attempt, to avoid hammering a blocked/rate-limited auth endpoint
+- Backoff state is keyed by account email in module-level state (`_AUTH_BACKOFF_STATE`), not on the `PyMeural` instance, since Home Assistant recreates the client on every `ConfigEntryNotReady` setup retry; resets on successful auth or full HA restart
 
 **LocalMeural** (`pymeural.py`):
 - Local device API client for Canvas web server (http://DEVICE-IP/remote/)
@@ -95,7 +98,9 @@ The integration uses two DataUpdateCoordinators for efficient polling:
 2. PyMeural authenticates with AWS Cognito, receives access + refresh tokens
 3. Tokens stored in config entry via `token_update_callback`
 4. Access token automatically refreshed when expired
-5. If refresh token fails, triggers Home Assistant reauth flow
+5. If refresh token fails, falls through to full authentication with the stored password
+6. If full authentication fails with genuinely invalid credentials (`InvalidAuth`), the cloud coordinator raises `ConfigEntryAuthFailed`, which triggers Home Assistant's reauth flow (`async_step_reauth`/`async_step_reauth_confirm` in `config_flow.py`), prompting the user for a new password
+7. If authentication instead fails due to a connectivity problem (`CannotConnect` — e.g. an upstream WAF block or throttling), the coordinator raises `UpdateFailed` for retry instead, so reauth is not triggered on what may just be a transient upstream block
 
 ### Data Flow
 
