@@ -2,27 +2,37 @@
   "config": {
     "step": {
       "user": {
+        "description": "Sign in with your NETGEAR account. NETGEAR may send a one-time verification code.",
         "data": {
           "email": "Email",
           "password": "[%key:common::config_flow::data::password%]"
         }
       },
       "reauth_confirm": {
-        "title": "Reauthenticate Meural",
-        "description": "The Meural integration needs to re-authenticate for {email}.",
+        "description": "Sign in again for {email}.",
         "data": {
           "password": "[%key:common::config_flow::data::password%]"
+        }
+      },
+      "challenge": {
+        "description": "Enter the verification response for {challenge} sent to {destination}.",
+        "data": {
+          "verification_code": "Verification code"
         }
       }
     },
     "error": {
       "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
       "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
+      "invalid_code": "The verification code is invalid or expired",
+      "auth_blocked": "NETGEAR temporarily blocked this sign-in. Stop retrying and try again later.",
       "unknown": "[%key:common::config_flow::error::unknown%]"
     },
     "abort": {
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
-      "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]"
+      "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]",
+      "challenge_expired": "The verification session expired. Start signing in again.",
+      "wrong_account": "The account does not match the account that needs reauthentication."
     }
   }
 }

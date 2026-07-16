@@ -51,18 +51,24 @@ The integration uses two DataUpdateCoordinators for efficient polling:
 ### Core Components
 
 **PyMeural** (`pymeural.py`):
-- Cloud API client for Meural's REST API (https://api.meural.com/v0/)
-- Uses AWS Cognito (boto3) for authentication with automatic token refresh
-- Handles authentication token lifecycle with callback for persistent storage
-- All API methods are async and use aiohttp
-- Classifies Cognito auth failures by error code: `NotAuthorizedException`/`UserNotFoundException` raise `InvalidAuth` (genuinely bad credentials); anything else (WAF blocks, throttling, network errors) raises `CannotConnect` so it doesn't misreport as bad credentials
-- On auth failure, applies exponential backoff (60s, doubling up to a 30 min cap) before allowing another full authentication attempt, to avoid hammering a blocked/rate-limited auth endpoint
-- Backoff state is keyed by account email in module-level state (`_AUTH_BACKOFF_STATE`), not on the `PyMeural` instance, since Home Assistant recreates the client on every `ConfigEntryNotReady` setup retry; resets on successful auth or full HA restart
+- Cloud API client for Meural's REST API (https://api.meural.com/v1/)
+- Does not hold credentials (no username/password) — only tokens (`token`, `refresh_token`, `expires_at`, `trust_id`); all interactive login (including any OTP/MFA challenge) happens in `config_flow.py` via `netgear_auth.NetgearAuthenticator`, since a background coordinator poll can't handle an interactive prompt
+- `get_new_token()` only ever refreshes via Netgear Accounts (`netgear_auth.refresh_access_token`); if the refresh token itself is invalid, it raises rather than attempting a silent full relogin, and Home Assistant's reauth flow takes over
+- `request()` proactively refreshes ~60s before the access token's JWT expiry, and retries once on a 401
+- On auth failure, applies exponential backoff (60s, doubling up to a 30 min cap) before allowing another refresh attempt, to avoid hammering a blocked/rate-limited auth endpoint
+- Backoff state is keyed by `trust_id` in module-level state (`_AUTH_BACKOFF_STATE`), not on the `PyMeural` instance, since Home Assistant recreates the client on every `ConfigEntryNotReady` setup retry; `trust_id` is persisted across recreations via the config entry so the backoff survives; resets on successful auth or full HA restart
 
 **LocalMeural** (`pymeural.py`):
 - Local device API client for Canvas web server (http://DEVICE-IP/remote/)
 - Controls device directly without cloud dependency
 - Handles device sleep/wake detection
+
+**NetgearAuthenticator** (`netgear_auth.py`):
+- Implements Netgear/Meural's current login flow: AWS Cognito `CUSTOM_AUTH` (answering the resulting `CUSTOM_CHALLENGE` with the password), falling back to legacy `USER_PASSWORD_AUTH` only if Cognito reports the account needs auth migration
+- Talks to Cognito via plain HTTP (`InitiateAuth`/`RespondToAuthChallenge` don't require request signing), then exchanges the resulting Cognito access token for Meural's own tokens via a Netgear Accounts OAuth code exchange (`accounts2.netgear.com/api/oauth/authorize` → `/api/oauth/token`)
+- Refreshes through Netgear Accounts (`accounts2.netgear.com/api/getAccessToken`), not Cognito
+- Supports interactive Cognito challenges (email/SMS/authenticator OTP, `NEW_PASSWORD_REQUIRED`, etc.) by raising `ChallengeRequired`, which `config_flow.py`'s `async_step_challenge` surfaces as a form
+- Exception hierarchy: `MeuralAuthError` → `CannotConnect` (connectivity), `InvalidAuth` (bad credentials/session, → `InvalidChallenge` for a bad OTP), `AuthenticationBlocked` (upstream WAF block, detected across all three HTTP call sites — initial login, OAuth exchange, and refresh — so it's never misreported as bad credentials), `ChallengeRequired` (needs an interactive answer)
 
 **MeuralBacklightLight** (`light.py`):
 - Light entity controlling the Canvas backlight brightness
@@ -94,13 +100,13 @@ The integration uses two DataUpdateCoordinators for efficient polling:
 
 ### Authentication Flow
 
-1. User provides email/password via config flow
-2. PyMeural authenticates with AWS Cognito, receives access + refresh tokens
-3. Tokens stored in config entry via `token_update_callback`
-4. Access token automatically refreshed when expired
-5. If refresh token fails, falls through to full authentication with the stored password
-6. If full authentication fails with genuinely invalid credentials (`InvalidAuth`), the cloud coordinator raises `ConfigEntryAuthFailed`, which triggers Home Assistant's reauth flow (`async_step_reauth`/`async_step_reauth_confirm` in `config_flow.py`), prompting the user for a new password
-7. If authentication instead fails due to a connectivity problem (`CannotConnect` — e.g. an upstream WAF block or throttling), the coordinator raises `UpdateFailed` for retry instead, so reauth is not triggered on what may just be a transient upstream block
+1. User provides email/password via config flow (`async_step_user`); `NetgearAuthenticator.authenticate()` starts Cognito `CUSTOM_AUTH` and answers the resulting challenge with the password
+2. If Cognito requests a further challenge (real OTP/MFA), `ChallengeRequired` routes the flow to `async_step_challenge` for an interactive code
+3. The resulting Cognito access token is exchanged for Meural's own access/refresh tokens via Netgear Accounts OAuth
+4. Tokens (plus `expires_at` and `trust_id`) are stored in the config entry via `token_update_callback`
+5. `PyMeural` proactively refreshes the access token via Netgear Accounts (not Cognito) shortly before it expires, or reactively on a 401
+6. If the refresh token itself is invalid (`InvalidAuth`), the cloud coordinator raises `ConfigEntryAuthFailed`, triggering Home Assistant's reauth flow (`async_step_reauth`/`async_step_reauth_confirm`, which can also route through `async_step_challenge` again if needed)
+7. If authentication instead fails due to a connectivity problem (`CannotConnect`) or an upstream WAF block (`AuthenticationBlocked`), the coordinator raises `UpdateFailed` for retry instead, so reauth is not triggered on something re-entering a password can't fix
 
 ### Data Flow
 
@@ -121,6 +127,7 @@ The integration uses two DataUpdateCoordinators for efficient polling:
 - `light.py`: Backlight light entity
 - `sensor.py`: Sensor entities (ambient light, free space, WiFi signal, last cloud contact)
 - `pymeural.py`: API clients for both cloud and local interfaces
+- `netgear_auth.py`: Cognito/Netgear Accounts authentication (login, OTP/MFA challenges, token exchange, refresh)
 - `config_flow.py`: Configuration flow for UI setup
 - `const.py`: Constants (update intervals, domain name)
 - `services.yaml`: Custom service definitions
@@ -128,8 +135,7 @@ The integration uses two DataUpdateCoordinators for efficient polling:
 
 ## Dependencies
 
-- **boto3==1.38.15**: AWS SDK for Cognito authentication
-- **aiohttp**: Async HTTP client (provided by Home Assistant)
+- **aiohttp**: Async HTTP client (provided by Home Assistant); used directly for Cognito/Netgear Accounts calls (no AWS SDK needed — `InitiateAuth`/`RespondToAuthChallenge` don't require request signing)
 - Home Assistant 2024.1.0+ (DataUpdateCoordinator pattern)
 - Python 3.11+
 
@@ -149,7 +155,7 @@ All services are fully documented in `services.yaml`.
 
 ## Important Notes
 
-- No two-factor authentication support (standard login only)
+- Two-factor/one-time-code sign-in is supported: an interactive challenge step (`async_step_challenge`) handles email/SMS/authenticator codes when Cognito requests one
 - SD card folders (meural1-4) supported but with limited metadata
 - Uses both cloud polling and local device communication
 - Local IP discovery happens via cloud API (device must be online to initial setup)

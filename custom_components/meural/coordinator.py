@@ -1,4 +1,5 @@
 """DataUpdateCoordinator for Meural integration."""
+
 from __future__ import annotations
 
 import asyncio
@@ -20,7 +21,8 @@ from .const import (
     GALLERY_UPDATE_INTERVAL,
     LOCAL_UPDATE_INTERVAL,
 )
-from .pymeural import CannotConnect, DeviceTurnedOff, InvalidAuth, LocalMeural, PyMeural
+from .netgear_auth import AuthenticationBlocked, CannotConnect, InvalidAuth
+from .pymeural import DeviceTurnedOff, LocalMeural, PyMeural
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -63,8 +65,14 @@ class CloudDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def _update_polling_interval(self) -> None:
         """Update polling interval based on all devices' sleep states."""
-        awake_count = sum(1 for coord in self._local_coordinators.values() if not coord.sleeping)
-        new_interval = timedelta(seconds=CLOUD_UPDATE_INTERVAL if awake_count else CLOUD_UPDATE_INTERVAL_SLEEPING)
+        awake_count = sum(
+            1 for coord in self._local_coordinators.values() if not coord.sleeping
+        )
+        new_interval = timedelta(
+            seconds=CLOUD_UPDATE_INTERVAL
+            if awake_count
+            else CLOUD_UPDATE_INTERVAL_SLEEPING
+        )
 
         if self.update_interval != new_interval:
             _LOGGER.debug(
@@ -119,7 +127,13 @@ class CloudDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "Meural Cloud: Gallery data refreshed (%d user galleries)",
                 len(user_galleries),
             )
-        except (InvalidAuth, CannotConnect, aiohttp.ClientError, asyncio.TimeoutError) as err:
+        except (
+            InvalidAuth,
+            CannotConnect,
+            AuthenticationBlocked,
+            aiohttp.ClientError,
+            asyncio.TimeoutError,
+        ) as err:
             _LOGGER.warning("Meural Cloud: Failed to refresh gallery data: %s", err)
         finally:
             self._gallery_refresh_in_progress = False
@@ -152,10 +166,13 @@ class CloudDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise ConfigEntryAuthFailed(
                 "Authentication failed. Please reauthenticate."
             ) from err
-        except (CannotConnect, aiohttp.ClientError, asyncio.TimeoutError) as err:
+        except (CannotConnect, AuthenticationBlocked, aiohttp.ClientError, asyncio.TimeoutError) as err:
             # Network error (including upstream WAF/rate-limit blocks) - raise
-            # UpdateFailed for retry, without triggering the reauth flow.
-            raise UpdateFailed(f"Error communicating with Meural cloud API: {err}") from err
+            # UpdateFailed for retry, without triggering the reauth flow, since
+            # re-entering credentials can't fix a WAF block or a transient outage.
+            raise UpdateFailed(
+                f"Error communicating with Meural cloud API: {err}"
+            ) from err
         except Exception as err:
             # Unexpected error
             _LOGGER.exception("Unexpected error updating Meural cloud data")
@@ -301,11 +318,15 @@ class LocalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "galleries": cached.get("galleries", []),
                 "gallery_status": cached.get("gallery_status", {}),
             }
-        except Exception as err:
+        except Exception:
             # Unexpected error
             _LOGGER.exception(
                 "Unexpected error updating Meural local device %s",
                 self.device.get("alias", self.device_id),
             )
             # Don't fail integration, just return last known data
-            return self.data or {"sleeping": True, "galleries": [], "gallery_status": {}}
+            return self.data or {
+                "sleeping": True,
+                "galleries": [],
+                "gallery_status": {},
+            }

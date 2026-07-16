@@ -5,6 +5,23 @@ All notable changes to the ha-meural Home Assistant integration will be document
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-07-16
+
+### Changed
+- **Cloud authentication reworked**: Netgear retired the direct AWS Cognito `USER_PASSWORD_AUTH`/`REFRESH_TOKEN_AUTH` login flow this integration used, and AWS WAF now rejects it outright. Replaced it with the current Netgear web app flow: Cognito `CUSTOM_AUTH` (with `USER_PASSWORD_AUTH` kept only as an account-migration fallback), followed by a Netgear Accounts OAuth token exchange for the actual Meural session tokens, and refreshed through Netgear Accounts rather than Cognito.
+- **Meural API bumped to v1**: Cloud API requests now target `/v1/` instead of the retired `/v0/`, with the `x-meural-api-version` header bumped to `4` and a new `x-meural-source-platform: web` header added.
+- **`boto3` dependency removed**: The new Cognito calls don't require request signing, so authentication now goes through plain HTTP instead of the AWS SDK.
+- **Two-factor / one-time-code sign-in supported**: The config flow now has a verification step for accounts that require an email, SMS, or authenticator code during sign-in (addresses #32).
+
+### Added
+- **Reauthentication flow**: Authentication failures now trigger Home Assistant's reauth flow with a working `async_step_reauth`/`async_step_reauth_confirm` implementation (previously advertised but not actually wired up).
+- **Exponential backoff on repeated auth failures**: Failed token refreshes back off from 60s up to a 30-minute cap instead of retrying immediately, so a sustained upstream block (WAF or otherwise) isn't hammered on every retry - including across Home Assistant recreating the integration on setup retries.
+- **Distinct WAF-block detection**: Authentication failures caused by an upstream WAF block are now classified separately from invalid credentials and from generic connectivity errors, so they're reported accurately instead of prompting for a password re-entry that can't fix them.
+
+### Fixed
+- **Login and token refresh restored**: Cloud authentication had stopped working entirely after Netgear/Meural retired the legacy Cognito auth flow (`ForbiddenException: Request not allowed due to WAF block`); this release restores it via the new flow above.
+- Several authentication failure paths that previously raised unclassified or silently-swallowed exceptions now log clearly and are handled consistently.
+
 ## [2.3.0] - 2026-05-19
 
 ### Fixed
