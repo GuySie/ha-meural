@@ -3,11 +3,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import json
-from typing import Any, Callable
+import time
+from typing import Any, Callable, NoReturn
 
 import aiohttp
 import async_timeout
 import boto3
+from botocore.exceptions import ClientError as BotoClientError
 
 from aiohttp.client_exceptions import ClientResponseError
 
@@ -20,6 +22,45 @@ BASE_URL = "https://api.meural.com/v0/"
 AUTH_CLIENT_NAME = "cognito-idp"
 AUTH_CLIENT_REGION = "eu-west-1"
 AUTH_CLIENT_CLIENTID = "487bd4kvb1fnop6mbgk8gu5ibf"
+
+# Cognito error codes that mean the credentials themselves were rejected.
+# Anything else (WAF blocks, throttling, network errors) is a connectivity
+# problem, not proof the username/password is wrong.
+COGNITO_INVALID_CREDENTIAL_CODES = {"NotAuthorizedException", "UserNotFoundException"}
+
+
+def _raise_for_auth_error(err: Exception) -> NoReturn:
+    """Classify an auth-request exception as InvalidAuth or CannotConnect."""
+    if isinstance(err, BotoClientError):
+        code = err.response.get("Error", {}).get("Code", "")
+        if code in COGNITO_INVALID_CREDENTIAL_CODES:
+            raise InvalidAuth from err
+    raise CannotConnect from err
+
+# Backoff before retrying full authentication after a failure, to avoid hammering
+# the auth endpoint (e.g. during an upstream WAF/rate-limit block). Doubles on each
+# consecutive failure up to the cap, and resets after a success.
+AUTH_RETRY_BACKOFF_BASE = 60
+AUTH_RETRY_BACKOFF_MAX = 1800
+
+
+def _auth_backoff_seconds(failure_count: int) -> float:
+    """Return the backoff duration for the given number of consecutive auth failures."""
+    return min(AUTH_RETRY_BACKOFF_BASE * (2 ** (failure_count - 1)), AUTH_RETRY_BACKOFF_MAX)
+
+
+# Auth backoff state keyed by account email, kept at module scope (rather than on
+# PyMeural instances) so it survives Home Assistant recreating the PyMeural instance
+# on every ConfigEntryNotReady setup retry - otherwise a sustained upstream block
+# (e.g. WAF) would keep resetting the backoff and get hit on every retry. Resets
+# naturally on a full Home Assistant restart.
+_AUTH_BACKOFF_STATE: dict[str, dict[str, Any]] = {}
+
+
+def _get_auth_backoff_state(username: str) -> dict[str, Any]:
+    return _AUTH_BACKOFF_STATE.setdefault(
+        username, {"last_failure": 0.0, "failure_count": 0, "error_type": CannotConnect}
+    )
 
 
 async def authenticate(
@@ -36,7 +77,11 @@ async def authenticate(
             AuthParameters={"USERNAME": username, "PASSWORD": password},
         )
 
-    response = await asyncio.to_thread(initiate_auth)
+    try:
+        response = await asyncio.to_thread(initiate_auth)
+    except Exception as err:
+        _LOGGER.warning("Meural: Authentication request failed: %s", err)
+        _raise_for_auth_error(err)
 
     if "AuthenticationResult" in response:
         auth_result = response["AuthenticationResult"]
@@ -45,6 +90,10 @@ async def authenticate(
         _LOGGER.debug("Meural: Authentication successful, tokens received")
         return access_token, refresh_token
 
+    _LOGGER.warning(
+        "Meural: Authentication response missing expected result (challenge: %s)",
+        response.get("ChallengeName", "unknown"),
+    )
     raise InvalidAuth
 
 
@@ -64,15 +113,19 @@ async def refresh_access_token(
 
     try:
         response = await asyncio.to_thread(initiate_auth_refresh)
-
-        if "AuthenticationResult" in response:
-            access_token = response["AuthenticationResult"]["AccessToken"]
-            _LOGGER.debug("Meural: Access token refreshed successfully")
-            return access_token
     except Exception as err:
         _LOGGER.warning("Meural: Failed to refresh token: %s", err)
-        raise InvalidAuth from err
+        _raise_for_auth_error(err)
 
+    if "AuthenticationResult" in response:
+        access_token = response["AuthenticationResult"]["AccessToken"]
+        _LOGGER.debug("Meural: Access token refreshed successfully")
+        return access_token
+
+    _LOGGER.warning(
+        "Meural: Refresh response missing expected result (challenge: %s)",
+        response.get("ChallengeName", "unknown"),
+    )
     raise InvalidAuth
 
 class PyMeural:
@@ -121,9 +174,17 @@ class PyMeural:
                 )
             except ClientResponseError as err:
                 if err.status != 401:
+                    _LOGGER.error(
+                        "Meural: Sending request to %s failed with status %s: %s",
+                        path, err.status, err.message,
+                    )
                     raise
                 # If a new token was just fetched and it fails again, just raise
                 if fetched_new_token:
+                    _LOGGER.error(
+                        "Meural: Sending request to %s failed. Freshly fetched token was rejected (401): %s",
+                        path, err.message,
+                    )
                     raise
                 _LOGGER.info('Meural: Sending Request failed. Re-Authenticating')
                 self.token = None
@@ -141,24 +202,67 @@ class PyMeural:
             if self.token is not None:
                 return
 
-            # Try to refresh using refresh token first
-            if self.refresh_token:
-                try:
-                    _LOGGER.debug("Meural: Attempting to refresh access token")
-                    self.token = await refresh_access_token(self.session, self.refresh_token)
-                    # Update only access token, keep existing refresh token
-                    self.token_update_callback(self.token, self.refresh_token)
-                    return
-                except InvalidAuth:
-                    _LOGGER.info("Meural: Refresh token invalid, performing full authentication")
-                    # Refresh token is invalid, fall through to full authentication
+            # Back off after a recent failure instead of hammering the auth endpoint
+            # on every subsequent request (e.g. while an upstream WAF/rate-limit block
+            # is in effect). Backoff doubles with each consecutive failure. Keyed by
+            # account in module-level state, since Home Assistant recreates this
+            # PyMeural instance on every ConfigEntryNotReady setup retry.
+            backoff_state = _get_auth_backoff_state(self.username)
+            if backoff_state["last_failure"]:
+                backoff = _auth_backoff_seconds(backoff_state["failure_count"])
+                time_since_failure = time.monotonic() - backoff_state["last_failure"]
+                if time_since_failure < backoff:
+                    remaining = backoff - time_since_failure
+                    _LOGGER.debug(
+                        "Meural: Backing off authentication for %.0fs after %d consecutive failure(s)",
+                        remaining,
+                        backoff_state["failure_count"],
+                    )
+                    # Re-raise the same error type as the failure that caused this
+                    # backoff, so a WAF/network block still reports as CannotConnect
+                    # rather than being misreported as bad credentials.
+                    raise backoff_state["error_type"](
+                        f"Skipping authentication attempt, retrying in {remaining:.0f}s"
+                    )
 
-            # Full authentication with username and password
-            _LOGGER.info("Meural: Performing full authentication")
-            self.token, self.refresh_token = await authenticate(
-                self.session, self.username, self.password
-            )
-            self.token_update_callback(self.token, self.refresh_token)
+            try:
+                # Try to refresh using refresh token first
+                if self.refresh_token:
+                    try:
+                        _LOGGER.debug("Meural: Attempting to refresh access token")
+                        self.token = await refresh_access_token(self.session, self.refresh_token)
+                        # Update only access token, keep existing refresh token
+                        self.token_update_callback(self.token, self.refresh_token)
+                        return
+                    except InvalidAuth:
+                        _LOGGER.info("Meural: Refresh token invalid, performing full authentication")
+                        # Refresh token is invalid, fall through to full authentication
+
+                # Full authentication with username and password
+                _LOGGER.info("Meural: Performing full authentication")
+                self.token, self.refresh_token = await authenticate(
+                    self.session, self.username, self.password
+                )
+                self.token_update_callback(self.token, self.refresh_token)
+            except (InvalidAuth, CannotConnect) as err:
+                backoff_state["last_failure"] = time.monotonic()
+                backoff_state["failure_count"] += 1
+                backoff_state["error_type"] = type(err)
+                _LOGGER.warning(
+                    "Meural: Authentication failed (%s: %s), backing off for %.0fs before retrying",
+                    type(err).__name__,
+                    err.__cause__ or err,
+                    _auth_backoff_seconds(backoff_state["failure_count"]),
+                )
+                raise
+            else:
+                if backoff_state["failure_count"]:
+                    _LOGGER.info(
+                        "Meural: Authentication recovered after %d failed attempt(s)",
+                        backoff_state["failure_count"],
+                    )
+                backoff_state["last_failure"] = 0.0
+                backoff_state["failure_count"] = 0
 
     async def get_user(self) -> dict[str, Any]:
         """Get user information."""

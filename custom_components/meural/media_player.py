@@ -34,6 +34,7 @@ from homeassistant.components.media_player.const import (
 
 from .const import DOMAIN, SD_CARD_FOLDER_MAX_ID, RECENTS_PLAYLIST_ID
 from .coordinator import CloudDataUpdateCoordinator, LocalDataUpdateCoordinator
+from .pymeural import CannotConnect, InvalidAuth
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -279,7 +280,7 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
                     self._last_fetched_item_id = current_item_id
                     # Update UI with new thumbnail
                     self.async_write_ha_state()
-            except (aiohttp.ClientError, asyncio.TimeoutError, KeyError) as err:
+            except (aiohttp.ClientError, asyncio.TimeoutError, KeyError, InvalidAuth, CannotConnect) as err:
                 _LOGGER.warning(
                     "Meural device %s: Error getting current item information: %s",
                     self.name,

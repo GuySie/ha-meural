@@ -20,7 +20,7 @@ from .const import (
     GALLERY_UPDATE_INTERVAL,
     LOCAL_UPDATE_INTERVAL,
 )
-from .pymeural import DeviceTurnedOff, InvalidAuth, LocalMeural, PyMeural
+from .pymeural import CannotConnect, DeviceTurnedOff, InvalidAuth, LocalMeural, PyMeural
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ class CloudDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "Meural Cloud: Gallery data refreshed (%d user galleries)",
                 len(user_galleries),
             )
-        except (InvalidAuth, aiohttp.ClientError, asyncio.TimeoutError) as err:
+        except (InvalidAuth, CannotConnect, aiohttp.ClientError, asyncio.TimeoutError) as err:
             _LOGGER.warning("Meural Cloud: Failed to refresh gallery data: %s", err)
         finally:
             self._gallery_refresh_in_progress = False
@@ -148,11 +148,13 @@ class CloudDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         except InvalidAuth as err:
             # Authentication failed - trigger reauth flow
+            _LOGGER.warning("Meural Cloud: Authentication failed, triggering reauth: %s", err)
             raise ConfigEntryAuthFailed(
                 "Authentication failed. Please reauthenticate."
             ) from err
-        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
-            # Network error - raise UpdateFailed for retry
+        except (CannotConnect, aiohttp.ClientError, asyncio.TimeoutError) as err:
+            # Network error (including upstream WAF/rate-limit blocks) - raise
+            # UpdateFailed for retry, without triggering the reauth flow.
             raise UpdateFailed(f"Error communicating with Meural cloud API: {err}") from err
         except Exception as err:
             # Unexpected error
