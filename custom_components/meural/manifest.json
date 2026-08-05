@@ -4,7 +4,7 @@
   "config_flow": true,
   "documentation": "https://github.com/GuySie/ha-meural",
   "issue_tracker": "https://github.com/GuySie/ha-meural/issues",
-  "requirements": ["boto3==1.42.97"],
+  "requirements": ["boto3>=1.42.97"],
   "ssdp": [],
   "zeroconf": [],
   "homekit": {},
