@@ -128,7 +128,7 @@ The integration uses two DataUpdateCoordinators for efficient polling:
 
 ## Dependencies
 
-- **boto3==1.38.15**: AWS SDK for Cognito authentication
+- **boto3==1.42.97**: AWS SDK for Cognito authentication (pinned to match Home Assistant core package constraints)
 - **aiohttp**: Async HTTP client (provided by Home Assistant)
 - Home Assistant 2024.1.0+ (DataUpdateCoordinator pattern)
 - Python 3.11+
