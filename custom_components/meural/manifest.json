@@ -4,13 +4,13 @@
   "config_flow": true,
   "documentation": "https://github.com/GuySie/ha-meural",
   "issue_tracker": "https://github.com/GuySie/ha-meural/issues",
-  "requirements": ["boto3==1.38.15"],
+  "requirements": ["boto3>=1.42.97"],
   "ssdp": [],
   "zeroconf": [],
   "homekit": {},
   "dependencies": [],
   "after_dependencies": ["http", "media_source"],
-  "version": "2.4.0",
+  "version": "2.4.1",
   "codeowners": ["@guysie"],
   "iot_class": "cloud_polling"
 }
