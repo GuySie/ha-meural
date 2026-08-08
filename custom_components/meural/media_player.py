@@ -15,7 +15,7 @@ from homeassistant.components import media_source
 from homeassistant.components.http.auth import async_sign_path
 from homeassistant.components.media_player import BrowseError, BrowseMedia
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, SupportsResponse
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.network import get_url
@@ -32,7 +32,7 @@ from homeassistant.components.media_player.const import (
     MediaPlayerEntityFeature
 )
 
-from .const import DOMAIN, SD_CARD_FOLDER_MAX_ID
+from .const import DOMAIN, SD_CARD_FOLDER_MAX_ID, RECENTS_PLAYLIST_ID
 from .coordinator import CloudDataUpdateCoordinator, LocalDataUpdateCoordinator
 from .pymeural import CannotConnect, InvalidAuth
 
@@ -157,8 +157,17 @@ async def async_setup_entry(
 
     platform.async_register_entity_service(
         "play_random_playlist",
-        {},
+        {
+            vol.Optional("include_recents", default=True): bool,
+        },
         "async_play_random_playlist",
+    )
+
+    platform.async_register_entity_service(
+        "play_random_cloud_playlist",
+        {},
+        "async_play_random_cloud_playlist",
+        supports_response=SupportsResponse.OPTIONAL,
     )
 
     platform.async_register_entity_service(
@@ -168,6 +177,15 @@ async def async_setup_entry(
             vol.Optional("gallery_name"): str,
         },
         "async_load_playlist",
+    )
+
+    platform.async_register_entity_service(
+        "delete_playlist",
+        {
+            vol.Optional("gallery_id"): vol.Coerce(int),
+            vol.Optional("gallery_name"): str,
+        },
+        "async_delete_playlist",
     )
 
 class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEntity):
@@ -467,6 +485,19 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         """Boolean if shuffling is enabled."""
         return self._meural_device["imageShuffle"]
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return custom attributes."""
+        attributes = {}
+
+        if self.local_coordinator.data:
+            gallery_status = self.local_coordinator.data.get("gallery_status", {})
+            current_gallery_id = gallery_status.get("current_gallery")
+            if current_gallery_id is not None:
+                attributes["current_gallery_id"] = int(current_gallery_id)
+
+        return attributes
+
     async def async_set_device_option(
         self,
         orientation=None,
@@ -540,7 +571,7 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         await self.meural.sync_device(self.meural_device_id)
         await self.cloud_coordinator.async_refresh_galleries()
 
-    async def async_play_random_playlist(self):
+    async def async_play_random_playlist(self, include_recents=True):
         """Pick a random gallery from all available galleries and play it."""
         if not self.local_coordinator.data:
             _LOGGER.warning("Meural device %s: Play random playlist. No local data available", self.name)
@@ -555,6 +586,8 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         current_gallery_id = str(gallery_status.get("current_gallery", ""))
 
         candidate_galleries = [g for g in galleries if str(g["id"]) != current_gallery_id]
+        if not include_recents:
+            candidate_galleries = [g for g in candidate_galleries if g["id"] != RECENTS_PLAYLIST_ID]
         if not candidate_galleries:
             # Only one gallery available; play it regardless
             candidate_galleries = galleries
@@ -568,6 +601,48 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         )
         await self.local_meural.send_change_gallery(gallery["id"])
         await self._refresh_after_user_action()
+
+    async def async_play_random_cloud_playlist(self):
+        """Pick a random gallery from cloud and load it onto the device."""
+        # Get all cloud galleries (device galleries + user galleries)
+        device_galleries = self.cloud_coordinator.data.get("device_galleries", {}).get(self.meural_device_id, [])
+        user_galleries = self.cloud_coordinator.data.get("user_galleries", [])
+        
+        # Deduplicate by ID
+        seen_ids: set[int] = set()
+        all_cloud_galleries: list[dict] = []
+        for g in device_galleries + user_galleries:
+            if g["id"] not in seen_ids:
+                seen_ids.add(g["id"])
+                all_cloud_galleries.append(g)
+
+        if not all_cloud_galleries:
+            _LOGGER.warning("Meural device %s: Load random cloud playlist. No cloud galleries available", self.name)
+            return
+
+        # Get current gallery ID to avoid selecting the same one
+        if self.local_coordinator.data:
+            gallery_status = self.local_coordinator.data.get("gallery_status", {})
+            current_gallery_id = gallery_status.get("current_gallery")
+        else:
+            current_gallery_id = None
+
+        candidate_galleries = [g for g in all_cloud_galleries if g["id"] != current_gallery_id]
+        if not candidate_galleries:
+            # Only one gallery available; load it regardless
+            candidate_galleries = all_cloud_galleries
+
+        gallery = random.choice(candidate_galleries)
+        _LOGGER.info(
+            "Meural device %s: Load random cloud playlist. Loading random cloud gallery %s, ID %s",
+            self.name,
+            gallery["name"],
+            gallery["id"],
+        )
+        await self.meural.device_load_gallery(self.meural_device_id, gallery["id"])
+        await self.local_meural.send_change_gallery(gallery["id"])
+        await self._refresh_after_user_action()
+        return {"id": gallery["id"], "name": gallery["name"]}
 
     async def async_load_playlist(self, gallery_id=None, gallery_name=None):
         """Load the latest cloud version of a gallery onto the device."""
@@ -605,6 +680,44 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
             resolved_id,
         )
         await self.meural.device_load_gallery(self.meural_device_id, resolved_id)
+        await self._refresh_after_user_action()
+
+    async def async_delete_playlist(self, gallery_id=None, gallery_name=None):
+        """Remove a gallery from the device."""
+        if gallery_id is None and gallery_name is None:
+            _LOGGER.error("Meural device %s: Delete playlist. Must provide gallery_id or gallery_name", self.name)
+            return
+
+        resolved_id = gallery_id
+
+        if resolved_id is None:
+            # Look up by name in cloud coordinator data
+            device_galleries = self.cloud_coordinator.data.get("device_galleries", {}).get(self.meural_device_id, [])
+            user_galleries = self.cloud_coordinator.data.get("user_galleries", [])
+            seen_ids: set[int] = set()
+            all_galleries: list[dict] = []
+            for g in device_galleries + user_galleries:
+                if g["id"] not in seen_ids:
+                    seen_ids.add(g["id"])
+                    all_galleries.append(g)
+            match = next((g for g in all_galleries if g["name"] == gallery_name), None)
+            if match is None:
+                available_names = [g["name"] for g in all_galleries]
+                _LOGGER.error(
+                    "Meural device %s: Delete playlist. Gallery '%s' not found in cloud data. Available galleries: %s",
+                    self.name,
+                    gallery_name,
+                    available_names,
+                )
+                return
+            resolved_id = match["id"]
+
+        _LOGGER.info(
+            "Meural device %s: Delete playlist. Removing gallery ID %s from device",
+            self.name,
+            resolved_id,
+        )
+        await self.meural.delete_device_gallery(self.meural_device_id, resolved_id)
         await self._refresh_after_user_action()
 
     async def _refresh_after_user_action(self) -> None:

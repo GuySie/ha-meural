@@ -10,3 +10,6 @@ LOCAL_UPDATE_INTERVAL = 10
 
 # SD card folder max ID
 SD_CARD_FOLDER_MAX_ID = 4
+
+# Recents playlist ID
+RECENTS_PLAYLIST_ID = 5
