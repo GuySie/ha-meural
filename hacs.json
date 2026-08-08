@@ -1,5 +1,3 @@
 {
-  "name": "HA-meural",
-  "domains": ["media_player"],
-  "iot_class": "Cloud Polling"
+  "name": "HA-meural"
 }

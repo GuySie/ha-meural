@@ -1,16 +1,16 @@
 {
   "domain": "meural",
   "name": "Meural",
+  "after_dependencies": ["http", "media_source"],
+  "codeowners": ["@guysie"],
   "config_flow": true,
+  "dependencies": [],
   "documentation": "https://github.com/GuySie/ha-meural",
+  "homekit": {},
+  "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/GuySie/ha-meural/issues",
   "requirements": ["boto3>=1.42.97"],
   "ssdp": [],
-  "zeroconf": [],
-  "homekit": {},
-  "dependencies": [],
-  "after_dependencies": ["http", "media_source"],
   "version": "2.4.1",
-  "codeowners": ["@guysie"],
-  "iot_class": "cloud_polling"
+  "zeroconf": []
 }
