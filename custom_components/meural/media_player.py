@@ -593,7 +593,10 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
 
         candidate_galleries = [g for g in galleries if str(g["id"]) != current_gallery_id]
         if not include_recents:
-            candidate_galleries = [g for g in candidate_galleries if g["id"] != RECENTS_PLAYLIST_ID]
+            candidate_galleries = [
+                g for g in candidate_galleries
+                if int(g["id"]) != RECENTS_PLAYLIST_ID
+            ]
         if not candidate_galleries:
             # Only one gallery available; play it regardless
             candidate_galleries = galleries
