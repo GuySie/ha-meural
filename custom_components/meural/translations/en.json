@@ -5,7 +5,7 @@
             "reauth_successful": "Reauthentication was successful",
             "challenge_expired": "The verification session expired. Start signing in again.",
             "wrong_account": "The account does not match the account that needs reauthentication.",
-            "external_url_unavailable": "Home Assistant could not determine the external address used by this browser. Open Home Assistant through its external HTTPS address and try again.",
+            "external_url_unavailable": "Home Assistant could not determine a secure HTTPS address used by this browser. Open Home Assistant through an HTTPS address reachable on your phone and try again.",
             "mobile_login_expired": "The mobile sign-in result expired. Start the sign-in again."
         },
         "error": {
@@ -38,7 +38,7 @@
                 }
             },
             "mobile_login": {
-                "description": "Open the one-time website on a phone, turn off Wi-Fi, and complete the NETGEAR sign-in using mobile data. The link expires after 10 minutes."
+                "description": "Open the one-time website while the phone can reach Home Assistant. Keep the tab open, turn off Wi-Fi or disconnect the VPN, and sign in using mobile data. If sending the result fails, reconnect to Wi-Fi or VPN and retry from the same tab. The link expires after 10 minutes."
             },
             "mobile_finish": {
                 "description": "Home Assistant received the mobile sign-in and is completing the Meural token exchange. Submit to retry this final exchange if NETGEAR temporarily rejected it."
