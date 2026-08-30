@@ -128,7 +128,7 @@ class PyMeural:
         return self.trust_id or f"entry:{self._entry_id}"
 
     async def request(
-        self, method: str, path: str, data: dict[str, Any] | None = None
+        self, method: str, path: str, data: dict[str, Any] | None = None, timeout: int = 10
     ) -> dict[str, Any]:
         url = f"{BASE_URL}{path}"
         kwargs = {}
@@ -145,7 +145,7 @@ class PyMeural:
             if self.token is None:
                 await self.get_new_token()
 
-            async with asyncio.timeout(10):
+            async with asyncio.timeout(timeout):
                 try:
                     async with self.session.request(
                         method,
@@ -273,7 +273,11 @@ class PyMeural:
         self, device_id: str | int, gallery_id: str | int
     ) -> dict[str, Any]:
         """Load a gallery on a device."""
-        return await self.request("post", f"devices/{device_id}/galleries/{gallery_id}")
+        return await self.request("post", f"devices/{device_id}/galleries/{gallery_id}", timeout=60)
+
+    async def delete_device_gallery(self, device_id: str | int, gallery_id: str | int) -> dict[str, Any]:
+        """Remove a gallery from a device."""
+        return await self.request("delete", f"devices/{device_id}/galleries/{gallery_id}")
 
     async def device_load_item(
         self, device_id: str | int, item_id: str | int
