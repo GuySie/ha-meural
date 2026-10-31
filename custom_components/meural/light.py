@@ -17,7 +17,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .coordinator import CloudDataUpdateCoordinator, LocalDataUpdateCoordinator
+from .coordinator import LocalDataUpdateCoordinator
 from .entity import MeuralDeviceInfoMixin
 
 _LOGGER = logging.getLogger(__name__)
@@ -30,12 +30,11 @@ async def async_setup_entry(
 ) -> None:
     """Set up Meural light entities."""
     entry_data = hass.data[DOMAIN][config_entry.entry_id]
-    cloud_coordinator: CloudDataUpdateCoordinator = entry_data["cloud_coordinator"]
     local_coordinators: dict[str, LocalDataUpdateCoordinator] = entry_data[
         "local_coordinators"
     ]
 
-    devices = list(cloud_coordinator.data["devices"].values())
+    devices = list(entry_data["devices"].values())
 
     entities = []
     for device in devices:

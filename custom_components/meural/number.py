@@ -66,6 +66,8 @@ async def async_setup_entry(
 ) -> None:
     """Set up Meural number entities."""
     entry_data = hass.data[DOMAIN][config_entry.entry_id]
+    if entry_data.get("local_only"):
+        return  # All number settings are cloud-backed; unavailable in local-only mode.
     cloud_coordinator: CloudDataUpdateCoordinator = entry_data["cloud_coordinator"]
 
     entities = []

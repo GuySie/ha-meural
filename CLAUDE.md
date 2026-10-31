@@ -114,6 +114,15 @@ The integration uses two DataUpdateCoordinators for efficient polling:
 7. Access tokens are refreshed through NETGEAR Accounts. A failed refresh (invalid auth, connection error, or WAF block) is recorded in `pymeural.py`'s module-level `_AUTH_BACKOFF_STATE`, keyed by `trust_id` (or the config entry ID before one is known); further refresh attempts back off exponentially (60s, doubling to a 30-minute cap) until a refresh succeeds or `reset_auth_backoff()` clears it after a fresh interactive login. State is kept at module scope, not on the `PyMeural` instance, so it survives Home Assistant recreating `PyMeural` on every `ConfigEntryNotReady` retry.
 8. If the Meural refresh token fails outright (`InvalidAuth`), Home Assistant triggers the reauth flow; a `CannotConnect` or `AuthenticationBlocked` (WAF/rate-limit) failure raises `UpdateFailed` for retry instead, since re-entering credentials can't fix a network or WAF issue
 
+### Local-only mode (v2.6.0+)
+
+An alternative setup path that never contacts NETGEAR's servers — no account, no `PyMeural`/`CloudDataUpdateCoordinator`, no stored credentials. Controls a single Canvas over its local web server only.
+
+- Entry point: `config_flow.py` adds a `local_setup` menu option (and an `async_step_reconfigure` to edit the host/name later). The user supplies the Canvas IP; `pymeural.build_local_device()` probes the local `identify`/`system` endpoints and builds a synthetic cloud-style device dict (defensive field mapping, safe defaults for cloud-only keys). The entry stores `{local_only: True, host, device}`.
+- `__init__.py` branches on `entry.data[CONF_LOCAL_ONLY]` (`_async_setup_local_entry`): creates only a `LocalDataUpdateCoordinator`, stores `meural=None`/`cloud_coordinator=None` plus a shared `devices` dict and `local_only` flag, and forwards to `LOCAL_PLATFORMS` (`media_player`, `sensor`, `light`, `select`). `number`/`switch` are skipped (all cloud-backed).
+- Platforms read the device list from `entry_data["devices"]` (populated in both modes). `select.py`/`sensor.py` register only their local-capable entities in local-only mode (the orientation select and the 4 local sensors; the cloud setting selects and the Last-Seen sensor are skipped).
+- `media_player.py` `MeuralEntity` takes a `local_only` flag: in local-only mode the local coordinator is its primary `CoordinatorEntity`, cloud-only features (`SHUFFLE_SET`/`PAUSE`/`PLAY`) are dropped, cloud service methods early-return with a warning (`_cloud_service_unavailable`), and browse/source/play paths use local galleries only. Artwork metadata is left unset (`_fetch_current_item_if_needed` returns early): the only metadata source is the cloud item API, and `gallery_status.current_item` is a cloud id that the local items endpoint doesn't resolve to a title.
+
 ### Data Flow
 
 1. Cloud coordinator fetches device settings from Meural API every 60s; gallery data fetched separately every 30 min

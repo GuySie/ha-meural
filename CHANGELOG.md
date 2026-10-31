@@ -5,6 +5,16 @@ All notable changes to the ha-meural Home Assistant integration will be document
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - 2026-10-31
+
+### Added
+- **Local-only mode**: a new "Local only" setup option controls a single Canvas directly over the LAN without a NETGEAR account — the integration never contacts NETGEAR's servers. Choose it from the integration's setup menu and enter the Canvas IP address (and an optional name); the device's identity, model and firmware are read from its local `identify`/`system` endpoints. A reconfigure flow lets you update the IP address (e.g. after a DHCP change) or name later.
+- Local-only entries expose the media player (next/previous, turn on/off, select a local playlist, play a local gallery/item, preview an image), the backlight light, the display-orientation select, and the local sensors (ambient light, physical orientation, free space, WiFi signal).
+
+### Notes
+- Cloud-only capabilities are unavailable in local-only mode: shuffle, pause/play (image duration), artwork metadata (title, artist, year, thumbnail), cloud-only playlists, the "Last Seen by Cloud" sensor, and the cloud-backed configuration entities (artwork duration, light sensitivity, image fit mode, letterbox color, auto brightness, orientation match, sleep when dark). The now-playing title is left unset because the local API identifies the current item by a cloud id the local endpoints can't resolve to a title.
+- Local-only entries are configured one Canvas per entry; add another entry for each additional Canvas. They coexist with a NETGEAR account entry.
+
 ## [2.5.0] - 2026-08-19
 
 ### Fixed

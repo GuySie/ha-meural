@@ -517,3 +517,69 @@ class LocalMeural:
 
 class DeviceTurnedOff(HomeAssistantError):
     """Error to indicate device turned off or not connected to the network."""
+
+
+def _first(data: dict[str, Any], *keys: str, default: Any = None) -> Any:
+    """Return the first non-empty value among keys, tolerating firmware differences."""
+    for key in keys:
+        value = data.get(key)
+        if value not in (None, ""):
+            return value
+    return default
+
+
+async def build_local_device(
+    host: str,
+    name: str | None,
+    session: aiohttp.ClientSession,
+) -> dict[str, Any]:
+    """Probe a Canvas over the LAN and build a synthetic cloud-style device dict.
+
+    Used by the local-only setup/reconfigure flow, where there is no NETGEAR cloud
+    to discover the device. Queries the local ``identify`` and ``system`` endpoints
+    and maps their fields defensively (field names vary across firmware), falling
+    back to sensible defaults. Raises a connection error if the Canvas is
+    unreachable, so the config flow can report ``cannot_connect``.
+    """
+    client = LocalMeural({"localIp": host, "alias": name or host}, session)
+
+    # identify is authoritative for reachability: let a connection error propagate.
+    identify = await client.send_identify() or {}
+    if not isinstance(identify, dict):
+        identify = {}
+
+    system: dict[str, Any] = {}
+    try:
+        system = await client.send_get_system() or {}
+    except (DeviceTurnedOff, aiohttp.ClientError, asyncio.TimeoutError):
+        system = {}
+    if not isinstance(system, dict):
+        system = {}
+
+    product_key = _first(
+        identify, "product_key", "productKey", "serial_number", "serial", default=host
+    )
+    model = _first(identify, "sku", "model", "hw_model", "frameModel", default="Meural Canvas")
+    if isinstance(model, dict):
+        model = model.get("name") or "Meural Canvas"
+    frame_name = name or _first(identify, "frame_name", "name", "alias", default=host)
+    version = _first(system, "version") or _first(
+        identify, "version", "fw_version", "firmware", default="unknown"
+    )
+
+    return {
+        "id": str(product_key),
+        "productKey": str(product_key),
+        "alias": str(frame_name),
+        "name": str(frame_name),
+        "frameModel": {"name": str(model)},
+        "version": str(version),
+        "localIp": host,
+        "status": "normal",
+        # Safe defaults for cloud-backed settings the local API can't provide,
+        # so entities that read these keys never KeyError in local-only mode.
+        "imageShuffle": False,
+        "gestureFlip": False,
+        "imageDuration": 0,
+        "orientationMatch": False,
+    }

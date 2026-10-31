@@ -51,6 +51,14 @@ MEURAL_SUPPORT = (
     | MediaPlayerEntityFeature.TURN_ON
 )
 
+# In local-only mode shuffle and pause/play are unavailable: they are cloud-backed
+# settings (imageShuffle / imageDuration written through the Meural cloud API).
+LOCAL_MEURAL_SUPPORT = MEURAL_SUPPORT & ~(
+    MediaPlayerEntityFeature.SHUFFLE_SET
+    | MediaPlayerEntityFeature.PAUSE
+    | MediaPlayerEntityFeature.PLAY
+)
+
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -59,11 +67,11 @@ async def async_setup_entry(
     """Set up Meural media player entities."""
     entry_data = hass.data[DOMAIN][config_entry.entry_id]
     meural = entry_data["meural"]
-    cloud_coordinator: CloudDataUpdateCoordinator = entry_data["cloud_coordinator"]
+    cloud_coordinator: CloudDataUpdateCoordinator | None = entry_data["cloud_coordinator"]
     local_coordinators: dict[str, LocalDataUpdateCoordinator] = entry_data["local_coordinators"]
+    local_only: bool = entry_data.get("local_only", False)
 
-    # Get devices from cloud coordinator data
-    devices = list(cloud_coordinator.data["devices"].values())
+    devices = list(entry_data["devices"].values())
 
     entities = []
     for device in devices:
@@ -75,6 +83,7 @@ async def async_setup_entry(
                 cloud_coordinator,
                 local_coordinator,
                 device,
+                local_only,
             )
         )
 
@@ -176,12 +185,16 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
     def __init__(
         self,
         meural,
-        cloud_coordinator: CloudDataUpdateCoordinator,
+        cloud_coordinator: CloudDataUpdateCoordinator | None,
         local_coordinator: LocalDataUpdateCoordinator,
         device: dict[str, Any],
+        local_only: bool = False,
     ) -> None:
         """Initialize the Meural entity."""
-        super().__init__(cloud_coordinator)
+        self._local_only = local_only or cloud_coordinator is None
+        # In local-only mode the local coordinator is this entity's primary
+        # coordinator (there is no cloud coordinator to drive CoordinatorEntity).
+        super().__init__(cloud_coordinator or local_coordinator)
 
         self.meural = meural
         self.cloud_coordinator = cloud_coordinator
@@ -192,17 +205,22 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         self._last_fetched_item_id: int | None = None
         self._last_gsensor: str | None = None
 
-        # Start listening to local coordinator updates
-        self.async_on_remove(
-            self.local_coordinator.async_add_listener(self._handle_local_coordinator_update)
-        )
-
-        # Unregister local coordinator when entity is removed
-        self.async_on_remove(
-            lambda: self.cloud_coordinator.unregister_local_coordinator(
-                self.meural_device_id
+        if not self._local_only:
+            # Cloud mode: the cloud coordinator is primary, so listen to local
+            # updates separately. In local-only mode the base CoordinatorEntity
+            # already listens to the local coordinator (see _handle_coordinator_update).
+            self.async_on_remove(
+                self.local_coordinator.async_add_listener(
+                    self._handle_local_coordinator_update
+                )
             )
-        )
+
+            # Unregister local coordinator when entity is removed
+            self.async_on_remove(
+                lambda: self.cloud_coordinator.unregister_local_coordinator(
+                    self.meural_device_id
+                )
+            )
 
     @property
     def meural_device_id(self) -> str:
@@ -223,23 +241,28 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         """Run when entity is added to hass."""
         await super().async_added_to_hass()
 
-        # Register this entity's local coordinator with cloud coordinator
-        self.cloud_coordinator.register_local_coordinator(
-            self.meural_device_id, self.local_coordinator
-        )
+        if not self._local_only:
+            # Register this entity's local coordinator with cloud coordinator
+            self.cloud_coordinator.register_local_coordinator(
+                self.meural_device_id, self.local_coordinator
+            )
 
-        # Get device info from cloud coordinator
-        device_id = self.meural_device_id
-        if device_id in self.cloud_coordinator.data["devices"]:
-            self._meural_device = self.cloud_coordinator.data["devices"][device_id]
-            self._pause_duration = self._meural_device.get("imageDuration", 0)
-            _LOGGER.info("Meural device %s: Setup completed", self.name)
+            # Get device info from cloud coordinator
+            device_id = self.meural_device_id
+            if device_id in self.cloud_coordinator.data["devices"]:
+                self._meural_device = self.cloud_coordinator.data["devices"][device_id]
+                self._pause_duration = self._meural_device.get("imageDuration", 0)
+                _LOGGER.info("Meural device %s: Setup completed", self.name)
 
         # Fetch initial current item if needed
         await self._fetch_current_item_if_needed()
 
     async def _fetch_current_item_if_needed(self) -> None:
         """Fetch current item information if not an SD-card folder."""
+        if self._local_only:
+            # Artwork metadata (title/artist/thumbnail) is only available from the
+            # cloud item API; leave it unset in local-only mode.
+            return
         if not self.local_coordinator.data:
             return
 
@@ -288,7 +311,13 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
             self._last_fetched_item_id = None
 
     def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the cloud coordinator."""
+        """Handle updated data from the primary coordinator."""
+        if self._local_only:
+            # Local-only: the local coordinator is primary; run the same handling
+            # as a dedicated local update (no cloud device dict to refresh from).
+            self._handle_local_coordinator_update()
+            return
+
         device_id = self.meural_device_id
         if device_id in self.coordinator.data["devices"]:
             self._meural_device = self.coordinator.data["devices"][device_id]
@@ -301,7 +330,8 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
     def _handle_local_coordinator_update(self) -> None:
         """Handle updated data from the local coordinator."""
         # Notify cloud coordinator that sleep state may have changed
-        self.cloud_coordinator.notify_sleep_state_changed()
+        if self.cloud_coordinator is not None:
+            self.cloud_coordinator.notify_sleep_state_changed()
 
         if self.local_coordinator.data:
             # Detect physical rotation via gsensor when orientationMatch is enabled.
@@ -362,11 +392,15 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
     @property
     def available(self) -> bool:
         """Return if entity is available."""
+        if self._meural_device.get("status") == "offline":
+            return False
+        if self._local_only:
+            # No cloud coordinator; rely on the local device being reachable.
+            return self.local_coordinator.last_update_success
         # Entity is available if coordinators are working and device is not offline
         return (
             self.coordinator.last_update_success
             and self.local_coordinator.last_update_success
-            and self._meural_device.get("status") != "offline"
         )
 
     @property
@@ -374,7 +408,9 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         """Return the state of the entity."""
         if self.local_coordinator.sleeping:
             return STATE_OFF
-        elif self._meural_device.get("imageDuration", 0) == 0:
+        # imageDuration (pause detection) is cloud-backed and unavailable locally,
+        # so a local-only awake device is always reported as playing.
+        if not self._local_only and self._meural_device.get("imageDuration", 0) == 0:
             return STATE_PAUSED
         return STATE_PLAYING
 
@@ -389,10 +425,14 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
     @property
     def supported_features(self) -> int:
         """Flag media player features that are supported."""
+        if self._local_only:
+            return LOCAL_MEURAL_SUPPORT
         return MEURAL_SUPPORT
 
     def _cloud_only_galleries(self) -> list[dict]:
         """Return cloud galleries not yet loaded on this device."""
+        if self._local_only or self.cloud_coordinator is None:
+            return []
         if not self.cloud_coordinator.data or not self.local_coordinator.data:
             return []
 
@@ -471,6 +511,8 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
     @property
     def shuffle(self):
         """Boolean if shuffling is enabled."""
+        if self._local_only:
+            return None
         return self._meural_device["imageShuffle"]
 
     async def async_set_device_option(
@@ -492,6 +534,8 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         schedulerEnabled=None,
         galleryRotation=None):
         """Set the configuration options on the Meural server."""
+        if self._cloud_service_unavailable("set_device_option"):
+            return
         params = {}
         if orientation is not None:
             params["orientation"] = orientation
@@ -528,6 +572,18 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         _LOGGER.info("Meural device %s: Setting options. Setting options on Meural server", self.name)
         await self.meural.update_device(self.meural_device_id, params)
 
+    def _cloud_service_unavailable(self, action: str) -> bool:
+        """Return True (and log) if a cloud-only action was called in local-only mode."""
+        if self._local_only:
+            _LOGGER.warning(
+                "Meural device %s: '%s' requires a NETGEAR account and is "
+                "unavailable in local-only mode",
+                self.name,
+                action,
+            )
+            return True
+        return False
+
     async def async_set_brightness(self, brightness):
         """Change backlight brightness setting."""
         await self.local_meural.send_control_backlight(brightness)
@@ -542,6 +598,8 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
 
     async def async_synchronize(self):
         """Synchronize device with Meural server."""
+        if self._cloud_service_unavailable("synchronize"):
+            return
         _LOGGER.info("Meural device %s: Synchronizing with Meural server", self.name)
         await self.meural.sync_device(self.meural_device_id)
         await self.cloud_coordinator.async_refresh_galleries()
@@ -577,6 +635,8 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
 
     async def async_load_playlist(self, gallery_id=None, gallery_name=None):
         """Load the latest cloud version of a gallery onto the device."""
+        if self._cloud_service_unavailable("load_playlist"):
+            return
         if gallery_id is None and gallery_name is None:
             _LOGGER.error("Meural device %s: Load playlist. Must provide gallery_id or gallery_name", self.name)
             return
@@ -713,6 +773,8 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
 
     async def async_media_pause(self):
         """Set duration to 0 (pause), store current duration in pause_duration."""
+        if self._cloud_service_unavailable("media_pause"):
+            return
         self._pause_duration = self._meural_device["imageDuration"]
         _LOGGER.info("Meural device %s: Pausing player. Setting image duration on Meural server to 0", self.name)
         await self.meural.update_device(self.meural_device_id, {"imageDuration": 0})
@@ -721,6 +783,8 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
 
     async def async_media_play(self):
         """Restore duration from pause_duration (play). Use duration 1800 if no pause_duration was stored."""
+        if self._cloud_service_unavailable("media_play"):
+            return
         duration = self._pause_duration or 1800
         _LOGGER.info("Meural device %s: Unpause player. Setting image duration on Meural server to %s", self.name, duration)
         await self.meural.update_device(self.meural_device_id, {"imageDuration": duration})
@@ -729,6 +793,8 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
 
     async def async_set_shuffle(self, shuffle):
         """Enable/disable shuffling."""
+        if self._cloud_service_unavailable("shuffle_set"):
+            return
         _LOGGER.info("Meural device %s: Shuffling player. Setting shuffle on Meural server to %s", self.name, shuffle)
         await self.meural.update_device(self.meural_device_id, {"imageShuffle": shuffle})
         self._meural_device["imageShuffle"] = shuffle
@@ -770,6 +836,9 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
             if media_id in local_ids:
                 _LOGGER.info("Meural device %s: Playing media. Media type is %s, playing local gallery %s via local device", self.name, media_type, media_id)
                 await self.local_meural.send_change_gallery(media_id)
+            elif self._local_only:
+                _LOGGER.warning("Meural device %s: Playing media. Gallery %s is not on the device and cloud loading is unavailable in local-only mode", self.name, media_id)
+                return
             else:
                 _LOGGER.info("Meural device %s: Playing media. Media type is %s, gallery %s not on device, loading via Meural cloud API", self.name, media_type, media_id)
                 await self.meural.device_load_gallery(self.meural_device_id, media_id)
@@ -795,6 +864,9 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
 
                 currentitems = await self.local_meural.send_get_items_by_gallery(currentgallery_id)
                 in_playlist = next((g["title"] for g in currentitems if g["id"] == media_id), None)
+                if in_playlist is None and self._local_only:
+                    _LOGGER.warning("Meural device %s: Playing media. Item %s is not in the current gallery and cloud loading is unavailable in local-only mode", self.name, media_id)
+                    return
                 if in_playlist is None:
                     _LOGGER.info("Meural device %s: Playing media. Item %s is not in current gallery, trying to display via Meural server", self.name, media_id)
                     try:
@@ -870,18 +942,25 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
                 can_expand=True,
                 children=[])
 
-            # Get galleries from coordinators
-            if not self.local_coordinator.data or not self.cloud_coordinator.data:
+            # Get galleries from coordinators. In local-only mode there is no cloud
+            # coordinator, so only local galleries are available.
+            if not self.local_coordinator.data or (
+                not self._local_only and not self.cloud_coordinator.data
+            ):
                 _LOGGER.warning("Meural device %s: Browsing media. Coordinator data not available", self.name)
                 return response
 
             # Refresh gallery data if stale (lazy load on browser open)
-            if self.cloud_coordinator.galleries_stale:
+            if not self._local_only and self.cloud_coordinator.galleries_stale:
                 await self.cloud_coordinator.async_refresh_galleries()
 
             local_galleries = self.local_coordinator.data.get("galleries", [])
-            device_galleries = self.cloud_coordinator.data.get("device_galleries", {}).get(self.meural_device_id, [])
-            user_galleries = self.cloud_coordinator.data.get("user_galleries", [])
+            if self._local_only:
+                device_galleries = []
+                user_galleries = []
+            else:
+                device_galleries = self.cloud_coordinator.data.get("device_galleries", {}).get(self.meural_device_id, [])
+                user_galleries = self.cloud_coordinator.data.get("user_galleries", [])
 
             # Combine device and user galleries
             remote_galleries = device_galleries.copy()
@@ -893,7 +972,8 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
 
             for g in local_galleries:
                 thumb = next((h["cover"] for h in remote_galleries if h["id"] == int(g["id"])), None)
-                if thumb is None and (int(g["id"]) > SD_CARD_FOLDER_MAX_ID):
+                # Thumbnail enrichment needs the cloud item API; skip it in local-only mode.
+                if thumb is None and not self._local_only and (int(g["id"]) > SD_CARD_FOLDER_MAX_ID):
                     _LOGGER.debug("Meural device %s: Browsing media. Gallery %s misses thumbnail, getting gallery items", self.name, g["id"])
                     album_items = await self.local_meural.send_get_items_by_gallery(g["id"])
                     if album_items:

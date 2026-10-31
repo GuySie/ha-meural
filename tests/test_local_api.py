@@ -160,5 +160,86 @@ class LocalMeuralRequestTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("Renamed Canvas", client.device["alias"])
 
 
+class BuildLocalDeviceTest(unittest.IsolatedAsyncioTestCase):
+    """Exercise the local-only device probe used by the config/reconfigure flow."""
+
+    def setUp(self) -> None:
+        pymeural.LOCAL_RETRY_DELAY = 0
+
+    async def test_maps_identify_and_system_fields(self) -> None:
+        session = FakeSession(
+            FakeResponse(
+                {
+                    "response": {
+                        "product_key": "PK123",
+                        "frame_name": "Living Room",
+                        "sku": "Canvas II",
+                    }
+                }
+            ),
+            FakeResponse({"response": {"version": "3.1.60"}}),
+        )
+
+        device = await pymeural.build_local_device("192.0.2.10", None, session)
+
+        self.assertEqual("PK123", device["productKey"])
+        self.assertEqual("PK123", device["id"])
+        self.assertEqual("Living Room", device["alias"])
+        self.assertEqual("Living Room", device["name"])
+        self.assertEqual("Canvas II", device["frameModel"]["name"])
+        self.assertEqual("3.1.60", device["version"])
+        self.assertEqual("192.0.2.10", device["localIp"])
+        self.assertEqual("normal", device["status"])
+        self.assertFalse(device["imageShuffle"])
+        self.assertFalse(device["gestureFlip"])
+
+    async def test_user_supplied_name_overrides_frame_name(self) -> None:
+        session = FakeSession(
+            FakeResponse({"response": {"product_key": "PK1", "frame_name": "Default"}}),
+            FakeResponse({"response": {"version": "1.0"}}),
+        )
+
+        device = await pymeural.build_local_device("192.0.2.10", "Office", session)
+
+        self.assertEqual("Office", device["alias"])
+
+    async def test_missing_fields_fall_back_to_defaults(self) -> None:
+        session = FakeSession(
+            FakeResponse({"response": {}}),
+            FakeResponse({"response": {}}),
+        )
+
+        device = await pymeural.build_local_device("192.0.2.33", None, session)
+
+        # No product key -> unique id falls back to the host.
+        self.assertEqual("192.0.2.33", device["productKey"])
+        self.assertEqual("192.0.2.33", device["alias"])
+        self.assertEqual("Meural Canvas", device["frameModel"]["name"])
+        self.assertEqual("unknown", device["version"])
+
+    async def test_system_failure_is_tolerated(self) -> None:
+        # identify succeeds; the (best-effort) system call fails on both attempts.
+        session = FakeSession(
+            FakeResponse({"response": {"product_key": "PK9", "version": "2.0"}}),
+            RaisingRequest(aiohttp.ServerDisconnectedError()),
+            RaisingRequest(aiohttp.ClientOSError(104, "Connection reset by peer")),
+        )
+
+        device = await pymeural.build_local_device("192.0.2.5", None, session)
+
+        self.assertEqual("PK9", device["productKey"])
+        # Version falls back to the identify value when system is unavailable.
+        self.assertEqual("2.0", device["version"])
+
+    async def test_unreachable_device_raises_connection_error(self) -> None:
+        session = FakeSession(
+            RaisingRequest(aiohttp.ServerDisconnectedError()),
+            RaisingRequest(aiohttp.ClientOSError(104, "Connection reset by peer")),
+        )
+
+        with self.assertRaises(aiohttp.ClientError):
+            await pymeural.build_local_device("192.0.2.99", None, session)
+
+
 if __name__ == "__main__":
     unittest.main()

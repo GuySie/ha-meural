@@ -25,12 +25,25 @@ Restart Home Assistant after copying.
 ### Setup
 After restarting go to *Settings*, *Devices & Services*, *Integrations*, and click *+ Add Integration* in the bottom right to add a new integration and find the Meural integration to set up.  
 
-Choose a NETGEAR sign-in method:
+Choose a setup method:
 
 - **Sign in normally from Home Assistant** when the Home Assistant connection is not blocked by NETGEAR.
 - **Sign in on a phone to bypass a WAF/IP block** when interactive login requests from the Home Assistant public IP are blocked.
+- **Local only — control one Canvas on your network (no NETGEAR account)** to control a single Canvas entirely over the LAN. See [Local-only mode](#local-only-mode) below.
 
 If NETGEAR sends a one-time verification code by email, SMS, or an authenticator app, enter it in the Home Assistant challenge screen for a normal login or in the phone browser for a mobile login. Background token refresh uses the resulting Meural refresh token and does not repeat the password login.
+
+#### Local-only mode
+
+Local-only mode talks to a Canvas only through its on-device web server (`http://YOUR-CANVAS-IP/remote/`) and **never contacts NETGEAR's servers** — no account, no cloud polling, no stored credentials.
+
+To set it up, choose **Local only** in the setup menu and enter the Canvas's IP address (assign it a static/reserved address on your router so it doesn't change). You can optionally give it a name. Home Assistant reads the device's identity, model, and firmware from its local endpoints. Each entry controls one Canvas; add another entry for each additional Canvas. A local-only entry can coexist with a regular NETGEAR account entry.
+
+If the Canvas's IP address changes, go to *Settings* → *Devices & Services* → *Meural* → the entry's menu → **Reconfigure** to update it (or the name).
+
+What works in local-only mode: the media player (next/previous image, turn on/off, selecting a local playlist, playing a local gallery or item, previewing an image), the backlight light, the display-orientation select, and the local sensors (ambient light, physical orientation, free space, WiFi signal).
+
+What is **not** available (all of it requires the NETGEAR cloud): shuffle, pause/play (artwork duration), artwork metadata (title, artist, year, thumbnail), cloud-only playlists, the *Last Seen by Cloud* sensor, and the cloud-backed settings (artwork duration, light sensitivity, image fit mode, letterbox color, auto brightness, orientation match, sleep when dark). The media player's now-playing title stays empty because the Canvas's local API identifies the current item by a cloud id that the local endpoints don't resolve to a title.
 
 #### Mobile workaround for a NETGEAR WAF/IP block
 

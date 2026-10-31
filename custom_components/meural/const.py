@@ -2,6 +2,10 @@
 
 DOMAIN = "meural"
 
+# Config entry keys for the local-only (no NETGEAR account) setup path.
+CONF_LOCAL_ONLY = "local_only"
+CONF_DEVICE = "device"
+
 # Coordinator update intervals (in seconds)
 CLOUD_UPDATE_INTERVAL = 60
 CLOUD_UPDATE_INTERVAL_SLEEPING = 3600

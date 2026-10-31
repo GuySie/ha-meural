@@ -3,8 +3,11 @@
         "abort": {
             "already_configured": "Device is already configured",
             "reauth_successful": "Reauthentication was successful",
+            "reconfigure_successful": "Reconfiguration was successful",
             "challenge_expired": "The verification session expired. Start signing in again.",
             "wrong_account": "The account does not match the account that needs reauthentication.",
+            "wrong_device": "That IP address belongs to a different Canvas than the one being reconfigured.",
+            "reconfigure_not_supported": "Only local-only Canvas entries can be reconfigured. Account-based entries are updated by reauthenticating.",
             "external_url_unavailable": "Home Assistant could not determine the external address used by this browser. Open Home Assistant through its external HTTPS address and try again.",
             "mobile_login_expired": "The mobile sign-in result expired. Start the sign-in again."
         },
@@ -17,10 +20,11 @@
         },
         "step": {
             "user": {
-                "description": "Choose how to sign in to your NETGEAR account.",
+                "description": "Choose how to set up Meural.",
                 "menu_options": {
                     "mobile_login": "Sign in on a phone to bypass a WAF/IP block",
-                    "password_login": "Sign in normally from Home Assistant"
+                    "password_login": "Sign in normally from Home Assistant",
+                    "local_setup": "Local only — control one Canvas on your network (no NETGEAR account)"
                 }
             },
             "reauth_method": {
@@ -42,6 +46,20 @@
             },
             "mobile_finish": {
                 "description": "Home Assistant received the mobile sign-in and is completing the Meural token exchange. Submit to retry this final exchange if NETGEAR temporarily rejected it."
+            },
+            "local_setup": {
+                "description": "Control a Meural Canvas directly over your local network, without a NETGEAR account. The integration never contacts NETGEAR's servers. Cloud-only features (shuffle, pause, artwork metadata and thumbnails, cloud playlists, and account settings) are not available.",
+                "data": {
+                    "host": "IP address",
+                    "name": "Name (optional)"
+                }
+            },
+            "reconfigure": {
+                "description": "Update the IP address or name of this Canvas. The device is re-checked on your network when you submit.",
+                "data": {
+                    "host": "IP address",
+                    "name": "Name (optional)"
+                }
             },
             "challenge": {
                 "description": "Enter the verification response for {challenge} sent to {destination}.",

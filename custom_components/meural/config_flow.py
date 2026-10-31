@@ -2,21 +2,23 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Mapping
 from typing import Any
 
+import aiohttp
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.const import CONF_PASSWORD
+from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import http
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from . import netgear_auth
-from .const import DOMAIN
+from .const import CONF_DEVICE, CONF_LOCAL_ONLY, DOMAIN
 from .mobile_auth import create_mobile_auth_url
-from .pymeural import reset_auth_backoff
+from .pymeural import DeviceTurnedOff, build_local_device, reset_auth_backoff
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -58,8 +60,109 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Choose a sign-in method for initial account setup."""
         return self.async_show_menu(
             step_id="user",
-            menu_options=["mobile_login", "password_login"],
+            menu_options=["mobile_login", "password_login", "local_setup"],
         )
+
+    async def async_step_local_setup(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> FlowResult:
+        """Set up a single Canvas over the LAN without a NETGEAR account."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            host = user_input[CONF_HOST].strip()
+            name = (user_input.get(CONF_NAME) or "").strip() or None
+            device = await self._probe_local_device(host, name, errors)
+            if device is not None:
+                await self.async_set_unique_id(
+                    device["productKey"], raise_on_progress=False
+                )
+                self._abort_if_unique_id_configured()
+                _LOGGER.info("Meural: Added local-only Canvas at %s", host)
+                return self.async_create_entry(
+                    title=device["alias"],
+                    data={
+                        CONF_LOCAL_ONLY: True,
+                        CONF_HOST: host,
+                        CONF_DEVICE: device,
+                    },
+                )
+
+        return self.async_show_form(
+            step_id="local_setup",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_HOST): str,
+                    vol.Optional(CONF_NAME): str,
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_reconfigure(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> FlowResult:
+        """Edit the host/name of an existing local-only Canvas entry."""
+        entry = self._get_reconfigure_entry()
+        if not entry.data.get(CONF_LOCAL_ONLY):
+            # Account-based entries are reconfigured by reauthenticating, not here.
+            return self.async_abort(reason="reconfigure_not_supported")
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            host = user_input[CONF_HOST].strip()
+            name = (user_input.get(CONF_NAME) or "").strip() or None
+            device = await self._probe_local_device(host, name, errors)
+            if device is not None:
+                # Make sure the reconfigured host still points at the same Canvas.
+                await self.async_set_unique_id(
+                    device["productKey"], raise_on_progress=False
+                )
+                self._abort_if_unique_id_mismatch(reason="wrong_device")
+                _LOGGER.info("Meural: Reconfigured local-only Canvas to %s", host)
+                return self.async_update_reload_and_abort(
+                    entry,
+                    data={
+                        CONF_LOCAL_ONLY: True,
+                        CONF_HOST: host,
+                        CONF_DEVICE: device,
+                    },
+                )
+
+        current_device = entry.data.get(CONF_DEVICE, {})
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_HOST, default=entry.data.get(CONF_HOST, "")
+                    ): str,
+                    vol.Optional(
+                        CONF_NAME, default=current_device.get("alias", "")
+                    ): str,
+                }
+            ),
+            errors=errors,
+        )
+
+    async def _probe_local_device(
+        self,
+        host: str,
+        name: str | None,
+        errors: dict[str, str],
+    ) -> dict[str, Any] | None:
+        """Probe a Canvas over the LAN, recording a flow error on failure."""
+        try:
+            return await build_local_device(
+                host, name, async_get_clientsession(self.hass)
+            )
+        except (DeviceTurnedOff, aiohttp.ClientError, asyncio.TimeoutError):
+            _LOGGER.warning("Meural: Could not reach Canvas at %s", host)
+            errors["base"] = "cannot_connect"
+        except Exception:  # pylint: disable=broad-except
+            _LOGGER.exception("Meural: Unexpected error probing Canvas at %s", host)
+            errors["base"] = "unknown"
+        return None
 
     async def async_step_password_login(
         self,

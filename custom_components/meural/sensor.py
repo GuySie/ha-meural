@@ -37,12 +37,13 @@ async def async_setup_entry(
 ) -> None:
     """Set up Meural sensor entities."""
     entry_data = hass.data[DOMAIN][config_entry.entry_id]
-    cloud_coordinator: CloudDataUpdateCoordinator = entry_data["cloud_coordinator"]
+    local_only: bool = entry_data.get("local_only", False)
+    cloud_coordinator: CloudDataUpdateCoordinator | None = entry_data["cloud_coordinator"]
     local_coordinators: dict[str, LocalDataUpdateCoordinator] = entry_data[
         "local_coordinators"
     ]
 
-    devices = list(cloud_coordinator.data["devices"].values())
+    devices = list(entry_data["devices"].values())
 
     entities = []
     for device in devices:
@@ -52,7 +53,9 @@ async def async_setup_entry(
         entities.append(MeuralPhysicalOrientationSensor(local_coordinator, device))
         entities.append(MeuralFreeSpaceSensor(local_coordinator, device))
         entities.append(MeuralWifiSignalSensor(local_coordinator, device))
-        entities.append(MeuralLastSeenSensor(cloud_coordinator, device))
+        # Last Seen by Cloud is sourced from the NETGEAR cloud API.
+        if not local_only and cloud_coordinator is not None:
+            entities.append(MeuralLastSeenSensor(cloud_coordinator, device))
 
     async_add_entities(entities)
 

@@ -10,13 +10,17 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import DOMAIN
+from homeassistant.const import CONF_HOST
+
+from .const import CONF_DEVICE, CONF_LOCAL_ONLY, DOMAIN
 from . import pymeural
 from .coordinator import CloudDataUpdateCoordinator, LocalDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = ["media_player", "sensor", "light", "switch", "select", "number"]
+# Platforms available in local-only mode (cloud-backed number/switch are skipped).
+LOCAL_PLATFORMS = ["media_player", "sensor", "light", "select"]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
@@ -28,6 +32,9 @@ async def async_setup(hass: HomeAssistant, config: dict):
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Meural from a config entry."""
+    if entry.data.get(CONF_LOCAL_ONLY):
+        return await _async_setup_local_entry(hass, entry)
+
     if "email" not in entry.data:
         _LOGGER.warning("Meural: Authentication changed. Please set up Meural again")
         return False
@@ -106,6 +113,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "meural": meural,
         "cloud_coordinator": cloud_coordinator,
         "local_coordinators": local_coordinators,
+        "devices": cloud_coordinator.data["devices"],
+        "local_only": False,
     }
 
     # Forward to platform setup
@@ -114,20 +123,49 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
+async def _async_setup_local_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up a local-only Meural entry (single Canvas, no NETGEAR cloud)."""
+    device = dict(entry.data[CONF_DEVICE])
+    # The stored IP is the source of truth and may have been edited via reconfigure.
+    device["localIp"] = entry.data[CONF_HOST]
+    device_id = str(device["id"])
+
+    local_coordinator = LocalDataUpdateCoordinator(
+        hass,
+        device,
+        async_get_clientsession(hass),
+    )
+    await local_coordinator.async_config_entry_first_refresh()
+
+    hass.data[DOMAIN][entry.entry_id] = {
+        "meural": None,
+        "cloud_coordinator": None,
+        "local_coordinators": {device_id: local_coordinator},
+        "devices": {device_id: device},
+        "local_only": True,
+    }
+
+    await hass.config_entries.async_forward_entry_setups(entry, LOCAL_PLATFORMS)
+
+    return True
+
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Unload a config entry."""
+    platforms = LOCAL_PLATFORMS if entry.data.get(CONF_LOCAL_ONLY) else PLATFORMS
     unload_ok = all(
         await asyncio.gather(
             *[
                 hass.config_entries.async_forward_entry_unload(entry, component)
-                for component in PLATFORMS
+                for component in platforms
             ]
         )
     )
     if unload_ok:
         entry_data = hass.data[DOMAIN].pop(entry.entry_id)
         cloud_coordinator = entry_data["cloud_coordinator"]
-        for device_id in entry_data["local_coordinators"]:
-            cloud_coordinator.unregister_local_coordinator(device_id)
+        if cloud_coordinator is not None:
+            for device_id in entry_data["local_coordinators"]:
+                cloud_coordinator.unregister_local_coordinator(device_id)
 
     return unload_ok

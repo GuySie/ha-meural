@@ -66,15 +66,20 @@ async def async_setup_entry(
 ) -> None:
     """Set up Meural select entities."""
     entry_data = hass.data[DOMAIN][config_entry.entry_id]
-    cloud_coordinator: CloudDataUpdateCoordinator = entry_data["cloud_coordinator"]
+    local_only: bool = entry_data.get("local_only", False)
+    cloud_coordinator: CloudDataUpdateCoordinator | None = entry_data["cloud_coordinator"]
     local_coordinators: dict[str, LocalDataUpdateCoordinator] = entry_data[
         "local_coordinators"
     ]
 
     entities = []
-    for device in cloud_coordinator.data["devices"].values():
+    for device in entry_data["devices"].values():
         local_coordinator = local_coordinators[str(device["id"])]
+        # Display Orientation is driven entirely through the local Canvas API.
         entities.append(MeuralDisplayOrientationSelect(local_coordinator, device))
+        # The remaining selects are cloud-backed settings.
+        if local_only or cloud_coordinator is None:
+            continue
         for description in SELECT_DESCRIPTIONS:
             if description.key not in device:
                 _LOGGER.debug(
