@@ -5,6 +5,11 @@ All notable changes to the ha-meural Home Assistant integration will be document
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- When the Canvas moved to a new image, the media player first reported the new `media_content_id` and `source` together with the previous image's `media_title`, `media_artist` and picture, and only corrected them half a second later, once the new item's metadata had arrived from the cloud. Automations reacting to the change read mismatched data and fired twice per image. The item, gallery and metadata now change together in one state update.
+
 ## [2.5.0] - 2026-08-19
 
 ### Fixed

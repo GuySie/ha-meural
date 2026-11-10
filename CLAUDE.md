@@ -95,6 +95,7 @@ The integration uses two DataUpdateCoordinators for efficient polling:
 - Detects physical device rotation via gsensor changes when orientationMatch is enabled
 - Reloads current gallery after orientation change to force `current_item` update (local API limitation)
 - Updates thumbnails immediately after user navigation actions without waiting for next poll cycle
+- `media_content_id` and `source` come from a snapshot (`_shown_item_id`, `_shown_gallery_name`), not the live `gallery_status`: `_update_shown_item()` holds a new cloud item back until `_fetch_shown_item()` has its metadata, so id, gallery, title, artist and picture change in one state write (the frame reports the item id ~0.5s before the cloud metadata arrives); SD-card folders and unchanged items update the snapshot immediately
 - Uses optimistic state updates for turn on/off, pause/play, and shuffle so the UI reflects changes instantly
 - Turn on: optimistically sets sleeping=False; device takes several seconds to wake so no immediate refresh (10s poll confirms)
 - Turn off: optimistically sets sleeping=True then confirms with an immediate refresh (device suspends quickly)
