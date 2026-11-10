@@ -191,6 +191,12 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         self._pause_duration = 0
         self._last_fetched_item_id: int | None = None
         self._last_gsensor: str | None = None
+        # The item and gallery shown in the entity's attributes. They only move to a
+        # new item together with that item's cloud metadata (_current_item), so the
+        # state never pairs a new media_content_id with the previous item's title.
+        self._shown_item_id: int | None = None
+        self._shown_gallery_name: str | None = None
+        self._fetching_item_ids: set[int] = set()
 
         # Start listening to local coordinator updates
         self.async_on_remove(
@@ -236,56 +242,100 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
             _LOGGER.info("Meural device %s: Setup completed", self.name)
 
         # Fetch initial current item if needed
-        await self._fetch_current_item_if_needed()
+        if (item_id := self._update_shown_item()) is not None:
+            await self._fetch_shown_item(item_id)
 
-    async def _fetch_current_item_if_needed(self) -> None:
-        """Fetch current item information if not an SD-card folder."""
-        if not self.local_coordinator.data:
-            return
+    @staticmethod
+    def _to_int(value: Any) -> int | None:
+        """Convert a gallery status value to an int, or None."""
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
 
-        gallery_status = self.local_coordinator.data.get("gallery_status", {})
+    def _gallery_status(self) -> dict[str, Any]:
+        """Return the latest gallery status from the local coordinator."""
+        return (self.local_coordinator.data or {}).get("gallery_status") or {}
+
+    def _set_shown(self, gallery_status: dict[str, Any]) -> None:
+        """Show the item and gallery of this gallery status."""
+        self._shown_item_id = self._to_int(gallery_status.get("current_item"))
+        self._shown_gallery_name = gallery_status.get("current_gallery_name")
+
+    def _update_shown_item(self) -> int | None:
+        """Show the frame's current item, unless its cloud metadata is needed first.
+
+        Returns the item ID to fetch from the cloud, or None. While an item is being
+        fetched the previous item stays shown, so media_content_id, source and
+        media_title always describe the same image and change in one state write.
+        """
+        gallery_status = self._gallery_status()
         if not gallery_status:
-            return
+            return None
 
-        current_gallery = int(gallery_status.get("current_gallery", 0))
+        current_gallery = self._to_int(gallery_status.get("current_gallery")) or 0
+        current_item_id = self._to_int(gallery_status.get("current_item"))
+
         if current_gallery > SD_CARD_FOLDER_MAX_ID:
-            try:
-                current_item_id = int(gallery_status.get("current_item", 0))
-                # Only fetch if item ID has changed to avoid unnecessary cloud API calls
-                if current_item_id and current_item_id != self._last_fetched_item_id:
-                    _LOGGER.debug(
-                        "Meural device %s: Fetching cloud data for item %s to update thumbnail",
-                        self.name,
-                        current_item_id,
-                    )
-                    self._current_item = await self.meural.get_item(current_item_id)
-                    self._last_fetched_item_id = current_item_id
-                    # Update UI with new thumbnail
-                    self.async_write_ha_state()
-            except (
-                aiohttp.ClientError,
-                asyncio.TimeoutError,
-                KeyError,
-                InvalidAuth,
-                CannotConnect,
-            ) as err:
-                _LOGGER.warning(
-                    "Meural device %s: Error getting current item information: %s",
-                    self.name,
-                    err,
-                )
+            # Only fetch if item ID has changed to avoid unnecessary cloud API calls
+            if current_item_id and current_item_id != self._last_fetched_item_id:
+                return current_item_id
+            if not current_item_id:
                 self._current_item = {}
-                # Reset last fetched ID on error to retry next time
-                self._last_fetched_item_id = None
         else:
-            _LOGGER.debug(
-                "Meural device %s: Gallery %s is a local SD-card folder",
-                self.name,
-                current_gallery,
-            )
+            if self._last_fetched_item_id is not None:
+                _LOGGER.debug(
+                    "Meural device %s: Gallery %s is a local SD-card folder",
+                    self.name,
+                    current_gallery,
+                )
             self._current_item = {}
             # Reset last fetched ID when in SD card folder
             self._last_fetched_item_id = None
+
+        self._set_shown(gallery_status)
+        return None
+
+    async def _fetch_shown_item(self, item_id: int) -> None:
+        """Fetch an item's cloud metadata, then show the item and its metadata at once."""
+        if item_id in self._fetching_item_ids:
+            return
+        self._fetching_item_ids.add(item_id)
+        try:
+            _LOGGER.debug(
+                "Meural device %s: Fetching cloud data for item %s to update thumbnail",
+                self.name,
+                item_id,
+            )
+            item = await self.meural.get_item(item_id)
+            fetched = True
+        except (
+            aiohttp.ClientError,
+            asyncio.TimeoutError,
+            KeyError,
+            InvalidAuth,
+            CannotConnect,
+        ) as err:
+            _LOGGER.warning(
+                "Meural device %s: Error getting current item information: %s",
+                self.name,
+                err,
+            )
+            item = {}
+            fetched = False
+        finally:
+            self._fetching_item_ids.discard(item_id)
+
+        gallery_status = self._gallery_status()
+        if self._to_int(gallery_status.get("current_item")) != item_id:
+            # The frame moved on while fetching; the next update shows the new item.
+            return
+
+        self._current_item = item
+        # Reset last fetched ID on error to retry next time
+        self._last_fetched_item_id = item_id if fetched else None
+        self._set_shown(gallery_status)
+        self.async_write_ha_state()
 
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the cloud coordinator."""
@@ -320,15 +370,13 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
                     self._last_gsensor,
                     gsensor,
                 )
-                self._current_item = {}
+                # Keep showing the current item and its metadata until the reloaded
+                # gallery reports the new one, but fetch it again even if its ID repeats.
                 self._last_fetched_item_id = None
                 self.hass.async_create_task(self._reload_gallery_on_orientation_change())
-            else:
-                # When local data updates, fetch current item if it changed
-                gallery_status = self.local_coordinator.data.get("gallery_status", {})
-                if gallery_status:
-                    # Schedule fetching current item in the background
-                    self.hass.async_create_task(self._fetch_current_item_if_needed())
+            elif (item_id := self._update_shown_item()) is not None:
+                # Fetch the new item's metadata in the background; it's shown when it arrives
+                self.hass.async_create_task(self._fetch_shown_item(item_id))
             if gsensor is not None:
                 self._last_gsensor = gsensor
 
@@ -383,8 +431,7 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         """Name of the current playlist."""
         if not self.local_coordinator.data:
             return None
-        gallery_status = self.local_coordinator.data.get("gallery_status", {})
-        return gallery_status.get("current_gallery_name")
+        return self._shown_gallery_name
 
     @property
     def supported_features(self) -> int:
@@ -424,9 +471,7 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         """Return the content ID of current playing media."""
         if not self.local_coordinator.data:
             return None
-        gallery_status = self.local_coordinator.data.get("gallery_status", {})
-        current_item = gallery_status.get("current_item")
-        return int(current_item) if current_item is not None else None
+        return self._shown_item_id
 
     @property
     def media_content_type(self):
@@ -619,7 +664,7 @@ class MeuralEntity(CoordinatorEntity[CloudDataUpdateCoordinator], MediaPlayerEnt
         await asyncio.sleep(0.5)
 
         # Force immediate refresh for user-initiated actions (bypasses throttling)
-        # This will automatically trigger _fetch_current_item_if_needed() via the coordinator update listener
+        # This will automatically trigger _update_shown_item() via the coordinator update listener
         await self.local_coordinator.async_refresh()
 
     async def _reload_gallery_on_orientation_change(self) -> None:
